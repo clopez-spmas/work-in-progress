@@ -21,8 +21,9 @@ function multiplier(key,val){
  const maxima={vertical:175,horizontal:63,desplazamiento:175,asimetria:135};
  if(n>maxima[key])return 0;
  const lower=entries.filter(([k])=>k<n).at(-1),upper=entries.find(([k])=>k>n);
- // Entre dos puntos de la tabla: usar el multiplicador mas desfavorable.
- if(lower&&upper)return Math.min(lower[1],upper[1]);
+ // Selección del punto más próximo de la tabla Excel (ej.: V=110 cm -> V=100 cm, VM=0,93).
+ // En un empate se selecciona el coeficiente menor, y se advierte en el informe metodológico.
+ if(lower&&upper){const dl=n-lower[0],du=upper[0]-n;return dl<du?lower[1]:du<dl?upper[1]:Math.min(lower[1],upper[1]);}
  return lower?.[1]??upper?.[1];
 }
 function calc(x){const problems=[];for(const k of ["peso","horizontal","vertical","desplazamiento","asimetria","frecuencia","agarre","unaMano","dosPersonas","extension","grupoDuracion"])if(!x[k])problems.push("Falta: "+k);if(problems.length)return{problems};
