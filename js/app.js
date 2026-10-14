@@ -38,11 +38,14 @@ const effective=w/(x.dosPersonas==="si"?2:1),product=Object.values(vals).reduce(
 return{vals,weightTotal:w,weightPerPerson:effective,indices:refs.map(([group,mass])=>({group,mass,recommended:mass*product,index:effective/(mass*product)}))};
 }
 function resultLevel(value){
+ // Informe de condiciones ergonomicas, apartado 2.1, pagina 6.
+ // Aplicar los limites al valor sin redondear; redondear solo para mostrar.
  if(!Number.isFinite(value))return {label:"No calculable",color:"#e2e8f0",text:"#334155"};
- if(value<=0.85)return {label:"Intervención no necesaria",color:"#92d050",text:"#142900"};
- if(value<=1)return {label:"Nivel de atención",color:"#ffff00",text:"#171717"};
- if(value<3)return {label:"Riesgo significativo",color:"#ff3333",text:"#ffffff"};
- return {label:"Riesgo significativo (≥3)",color:"#990000",text:"#ffffff"};
+ if(value<=1)return {label:"Muy bajo o tolerable",color:"#00ff00",text:"#111111"};
+ if(value<=1.5)return {label:"Bajo",color:"#ffff00",text:"#111111"};
+ if(value<=2)return {label:"Moderado",color:"#ff0000",text:"#ffffff"};
+ if(value<=3)return {label:"Alto",color:"#c00000",text:"#ffffff"};
+ return {label:"Muy alto",color:"#7030a0",text:"#ffffff"};
 }
 function copyTask(t,r){
  const groups=["Hombres 20–45","Hombres <20 o >45","Mujeres 20–45","Mujeres <20 o >45"];
@@ -73,7 +76,7 @@ function results(){
   const thead=document.createElement("thead");const taskHead=document.createElement("tr");const taskTitle=document.createElement("th");taskTitle.colSpan=3;taskTitle.className="task-table-title";taskTitle.textContent="Tarea: "+(t.name||"Sin nombre");taskHead.append(taskTitle);thead.append(taskHead);
   const columns=document.createElement("tr");["Grupo de referencia","IR-MMC (IL)","Nivel de riesgo"].forEach(c=>{const th=document.createElement("th");th.textContent=c;columns.append(th)});thead.append(columns);table.append(thead);
   const body=document.createElement("tbody");
-  if(r.indices){const groups=["Hombres 20–45","Hombres <20 o >45","Mujeres 20–45","Mujeres <20 o >45"];r.indices.forEach((v,k)=>{const tr=document.createElement("tr");for(const [n,value] of [groups[k],fmt(v.index),resultLevel(v.index).label].entries()){const td=document.createElement("td");td.textContent=value;if(n===2){const level=resultLevel(v.index);td.style.backgroundColor=level.color;td.style.color=level.text;td.title="Clasificación basada en umbrales de ERGOepm: 0,85 / 1 / 3"}tr.append(td)}body.append(tr)})}else{const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=3;td.textContent=(r.problems||["Cálculo no disponible"]).join("; ");tr.append(td);body.append(tr)}table.append(body);
+  if(r.indices){const groups=["Hombres 20–45","Hombres <20 o >45","Mujeres 20–45","Mujeres <20 o >45"];r.indices.forEach((v,k)=>{const tr=document.createElement("tr");for(const [n,value] of [groups[k],fmt(v.index),resultLevel(v.index).label].entries()){const td=document.createElement("td");td.textContent=value;if(n===2){const level=resultLevel(v.index);td.style.backgroundColor=level.color;td.style.color=level.text;td.title="Clasificación ISO 11228-1 según informe de condiciones ergonómicas, apartado 2.1"}tr.append(td)}body.append(tr)})}else{const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=3;td.textContent=(r.problems||["Cálculo no disponible"]).join("; ");tr.append(td);body.append(tr)}table.append(body);
   const btn=document.createElement("button");btn.className="secondary";btn.textContent="Copiar esta tabla a Word";btn.onclick=()=>copyTask(t,r);
   content.append(table,btn);card.append(header,content);container.append(card);
  });
