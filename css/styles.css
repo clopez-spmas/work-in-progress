@@ -21,3 +21,22 @@
 .nav-tools button,.nav-tools .upload{padding:8px 12px}
 .nav-tools #status{font-size:.85rem;color:#51677c;max-width:330px}
 @media(max-width:720px){.topbar{margin:-24px -24px 20px}.nav-main{gap:8px}.nav-main strong{order:3;width:100%;text-align:center}.nav-direction{margin-left:auto}.nav-tools{justify-content:center}}
+
+/* Replica de la estructura OCRA / Posturas Forzadas en Ergonomic Analyzer */
+.mmc-shell{max-width:1100px;margin:0 auto}
+.mmc-shell .ocra-header,.mmc-shell .mmc-screen,.mmc-shell .study-toolbar{background:#fff;border-radius:12px;padding:24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.mmc-shell .ocra-header{text-align:center}
+.mmc-shell .ocra-header .brand{color:#005a9c;font-size:14px;font-weight:700;letter-spacing:1.5px;margin-bottom:10px}
+.mmc-shell .ocra-header h1{margin:0;color:#005a9c}
+.mmc-shell .screen-nav{display:flex;align-items:center;gap:10px;margin:0 0 12px}
+.mmc-shell .screen-counter{flex:1;text-align:center;color:#718096;font-weight:700}
+.mmc-shell .nav-primary,.mmc-shell .nav-secondary,.mmc-shell .toolbar-btn{font:inherit;padding:10px 12px;border-radius:8px;font-weight:700;cursor:pointer}
+.mmc-shell .nav-primary{border:1px solid #0078d4;background:#0078d4;color:#fff}
+.mmc-shell .nav-primary:hover{background:#005a9c}
+.mmc-shell .nav-secondary,.mmc-shell .toolbar-btn{border:1px solid #0078d4;background:#fff;color:#005a9c}
+.mmc-shell .nav-secondary:hover,.mmc-shell .toolbar-btn:hover{background:#f7fafc;color:#005a9c}
+.mmc-shell .study-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:14px}
+.mmc-shell .study-toolbar .upload{display:inline-flex;align-items:center}
+.mmc-shell .status{min-height:24px;margin:6px 0;color:#005a9c;font-size:14px}
+.mmc-shell .mmc-screen{padding:24px}
+@media(max-width:760px){.mmc-shell .screen-nav{flex-wrap:wrap}.mmc-shell .screen-counter{order:-1;flex-basis:100%}.mmc-shell .mmc-screen{padding:18px}}
