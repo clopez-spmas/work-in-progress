@@ -5,7 +5,7 @@ let p={application:"MMC Analyzer",version:2,module:"simple",meta:{},tasks:[],sim
 const tables={vertical:{0:.77,25:.85,50:.93,75:1,100:.93,125:.85,150:.78},horizontal:{25:1,30:.83,40:.63,50:.5,55:.45,60:.42},desplazamiento:{25:1,30:.97,40:.93,50:.91,70:.88,100:.87,170:.86},asimetria:{0:1,30:.9,60:.81,90:.71,120:.52,135:.57}};
 const freq=[0,.1,.2,.5,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],FM={larga:[1,.85,.85,.81,.75,.65,.55,.45,.35,.27,.22,.18,0,0,0,0,0,0,0],media:[1,.95,.95,.92,.88,.84,.79,.72,.6,.5,.42,.35,.3,.26,0,0,0,0,0],corta:[1,1,1,.97,.94,.91,.88,.84,.8,.75,.7,.6,.52,.45,.41,.37,0,0,0]};
 const refs=[["Hombres 20–45",25],["Hombres fuera 20–45",20],["Mujeres 20–45",20],["Mujeres fuera 20–45",15]];
-const fmt=v=>Number.isFinite(v)?v.toLocaleString("es-ES",{maximumFractionDigits:3}):"—";
+const fmt=v=>Number.isFinite(v)?v.toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2}):"—";
 const safe=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function blank(){return Object.fromEntries(fields.map(k=>[k,""]))}function task(){return{id:crypto.randomUUID(),name:"",inputs:blank()}}
 function changed(){dirty=true;$("status").textContent="Cambios sin guardar"}function screen(s){["welcome","methods","simple"].forEach(k=>$(k).hidden=k!==s);scrollTo(0,0)}
