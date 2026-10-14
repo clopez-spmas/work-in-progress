@@ -37,14 +37,20 @@ const w=Number(x.peso);if(!Number.isFinite(w)||w<=0)problems.push("Peso inválid
 const effective=w/(x.dosPersonas==="si"?2:1),product=Object.values(vals).reduce((a,b)=>a*b,1);
 return{vals,weightTotal:w,weightPerPerson:effective,indices:refs.map(([group,mass])=>({group,mass,recommended:mass*product,index:effective/(mass*product)}))};
 }
-function resultLevel(value){return {label:"Pendiente de validar",color:"#e2e8f0"}}
+function resultLevel(value){
+ if(!Number.isFinite(value))return {label:"No calculable",color:"#e2e8f0",text:"#334155"};
+ if(value<=0.85)return {label:"Intervención no necesaria",color:"#92d050",text:"#142900"};
+ if(value<=1)return {label:"Nivel de atención",color:"#ffff00",text:"#171717"};
+ if(value<3)return {label:"Riesgo significativo",color:"#ff3333",text:"#ffffff"};
+ return {label:"Riesgo significativo (≥3)",color:"#990000",text:"#ffffff"};
+}
 function copyTask(t,r){
  const groups=["Hombres 20–45","Hombres <20 o >45","Mujeres 20–45","Mujeres <20 o >45"];
  const rows=r.indices?r.indices.map((v,i)=>[groups[i],fmt(v.index),resultLevel(v.index).label]):[];
  const title=t.name||"Sin nombre";
  const head='<tr><th colspan="3" style="padding:8px;border:1px solid #8da9c3;background:#6f9ac2;color:#fff;text-align:left">Tarea: '+safe(title)+'</th></tr>';
  const headers='<tr>'+["Grupo","IR-MMC (IL)","Nivel de riesgo"].map(v=>'<th style="border:1px solid #b9cede;padding:5px;background:#dceaf6">'+safe(v)+'</th>').join("")+'</tr>';
- const body=rows.map(row=>'<tr>'+row.map((val,i)=>'<td style="border:1px solid #b9cede;padding:5px;'+(i===2?'background:#e2e8f0;':'')+'">'+safe(val)+'</td>').join("")+'</tr>').join("");
+ const body=rows.map((row,j)=>'<tr>'+row.map((val,i)=>{const level=r.indices?resultLevel(r.indices[j].index):null;return '<td style="border:1px solid #b9cede;padding:5px;'+(i===2&&level?'background:'+level.color+';color:'+level.text+';':'')+'">'+safe(val)+'</td>'}).join("")+'</tr>').join("");
  const error=r.problems?'<tr><td colspan="3" style="border:1px solid #b9cede;padding:5px">'+safe(r.problems.join("; "))+'</td></tr>':"";
  const html='<table style="font-family:Arial,sans-serif;font-size:10pt;border-collapse:collapse;width:100%">'+head+headers+body+error+'</table>';
  const plain="Tarea: "+title+"\nGrupo\tIR-MMC (IL)\tNivel de riesgo\n"+(r.problems?r.problems.join("; "):rows.map(a=>a.join("\t")).join("\n"));
@@ -67,7 +73,7 @@ function results(){
   const thead=document.createElement("thead");const taskHead=document.createElement("tr");const taskTitle=document.createElement("th");taskTitle.colSpan=3;taskTitle.className="task-table-title";taskTitle.textContent="Tarea: "+(t.name||"Sin nombre");taskHead.append(taskTitle);thead.append(taskHead);
   const columns=document.createElement("tr");["Grupo de referencia","IR-MMC (IL)","Nivel de riesgo"].forEach(c=>{const th=document.createElement("th");th.textContent=c;columns.append(th)});thead.append(columns);table.append(thead);
   const body=document.createElement("tbody");
-  if(r.indices){const groups=["Hombres 20–45","Hombres <20 o >45","Mujeres 20–45","Mujeres <20 o >45"];r.indices.forEach((v,k)=>{const tr=document.createElement("tr");for(const [n,value] of [groups[k],fmt(v.index),resultLevel(v.index).label].entries()){const td=document.createElement("td");td.textContent=value;if(n===2){td.className="risk-pending";td.title="No se asigna un nivel ni color sin validar el baremo ERGOepm"}tr.append(td)}body.append(tr)})}else{const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=3;td.textContent=(r.problems||["Cálculo no disponible"]).join("; ");tr.append(td);body.append(tr)}table.append(body);
+  if(r.indices){const groups=["Hombres 20–45","Hombres <20 o >45","Mujeres 20–45","Mujeres <20 o >45"];r.indices.forEach((v,k)=>{const tr=document.createElement("tr");for(const [n,value] of [groups[k],fmt(v.index),resultLevel(v.index).label].entries()){const td=document.createElement("td");td.textContent=value;if(n===2){const level=resultLevel(v.index);td.style.backgroundColor=level.color;td.style.color=level.text;td.title="Clasificación basada en umbrales de ERGOepm: 0,85 / 1 / 3"}tr.append(td)}body.append(tr)})}else{const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=3;td.textContent=(r.problems||["Cálculo no disponible"]).join("; ");tr.append(td);body.append(tr)}table.append(body);
   const btn=document.createElement("button");btn.className="secondary";btn.textContent="Copiar esta tabla a Word";btn.onclick=()=>copyTask(t,r);
   content.append(table,btn);card.append(header,content);container.append(card);
  });
