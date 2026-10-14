@@ -11,3 +11,13 @@
 .task-result-table thead tr:nth-child(2) th{background:#dceaf6;color:#245982}
 .task-result-table .task-table-title{background:#6f9ac2;color:#fff;font-size:15px}
 .task-result-table .risk-pending{background:#e2e8f0;color:#334155}
+
+/* Navegacion superior persistente, como el resto de Ergonomic Analyzer */
+.topbar{position:sticky;top:0;z-index:30;display:flex;flex-direction:column;align-items:stretch;gap:9px;padding:12px 16px;margin:-24px -24px 24px;background:#fff;border-bottom:1px solid #cbd5e0;box-shadow:0 3px 9px #00000012;border-radius:12px 12px 0 0}
+.nav-main{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.nav-main strong{color:#245982}
+.nav-main .actions{margin:0}
+.nav-tools{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-wrap:wrap;padding-top:8px;border-top:1px solid #e6edf5}
+.nav-tools button,.nav-tools .upload{padding:8px 12px}
+.nav-tools #status{font-size:.85rem;color:#51677c;max-width:330px}
+@media(max-width:720px){.topbar{margin:-24px -24px 20px}.nav-main{gap:8px}.nav-main strong{order:3;width:100%;text-align:center}.nav-direction{margin-left:auto}.nav-tools{justify-content:center}}
