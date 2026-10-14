@@ -13,7 +13,18 @@ function nav(n){page=Math.min(3,Math.max(1,n));for(let i=1;i<=3;i++)$("page"+i).
 function selector(){for(const id of ["taskSelect","simTask"]){const e=$(id);e.replaceChildren();p.tasks.forEach((t,i)=>{const o=document.createElement("option");o.value=t.id;o.textContent=(i+1)+". "+(t.name||"Sin nombre");e.append(o)})}if(!p.tasks.some(t=>t.id===sel))sel=p.tasks[0]?.id||"";$("taskSelect").value=sel}
 function render(){const list=$("taskList");list.replaceChildren();p.tasks.forEach((t,i)=>{const row=document.createElement("div");row.className="task";const label=document.createElement("span");label.textContent="Tarea "+(i+1);const inp=document.createElement("input");inp.value=t.name;inp.maxLength=150;inp.placeholder="Nombre";inp.oninput=()=>{t.name=inp.value;selector();changed()};const edit=document.createElement("button");edit.className="secondary";edit.textContent="Datos";edit.onclick=()=>{sel=t.id;nav(2)};const del=document.createElement("button");del.className="secondary";del.textContent="Eliminar";del.onclick=()=>{if(confirm("¿Eliminar tarea?")){p.tasks.splice(i,1);delete p.simulations[t.id];changed();render()}};row.append(label,inp,edit,del);list.append(row)});$("taskCount").textContent=p.tasks.length+" / 50";$("addTask").disabled=p.tasks.length>=50;selector()}
 function inputs(){selector();const t=p.tasks.find(t=>t.id===sel);document.querySelectorAll("[data-field]").forEach(e=>{e.disabled=!t;e.value=t?.inputs?.[e.dataset.field]??""});$("destination").hidden=!t||t.inputs.controlDestino!=="si"}
-function multiplier(key,val){return Object.prototype.hasOwnProperty.call(tables[key],String(val))?tables[key][String(val)]:undefined}
+function multiplier(key,val){
+ const n=Number(val);if(val===""||!Number.isFinite(n)||n<0)return undefined;
+ const entries=Object.entries(tables[key]).map(([k,v])=>[Number(k),v]).sort((a,b)=>a[0]-b[0]);
+ if(key==="desplazamiento"&&n<=25)return 1;
+ const exact=entries.find(([k])=>k===n);if(exact)return exact[1];
+ const maxima={vertical:175,horizontal:63,desplazamiento:175,asimetria:135};
+ if(n>maxima[key])return 0;
+ const lower=entries.filter(([k])=>k<n).at(-1),upper=entries.find(([k])=>k>n);
+ // Entre dos puntos de la tabla: usar el multiplicador mas desfavorable.
+ if(lower&&upper)return Math.min(lower[1],upper[1]);
+ return lower?.[1]??upper?.[1];
+}
 function calc(x){const problems=[];for(const k of ["peso","horizontal","vertical","desplazamiento","asimetria","frecuencia","agarre","unaMano","dosPersonas","extension","grupoDuracion"])if(!x[k])problems.push("Falta: "+k);if(problems.length)return{problems};
 const vals={VM:multiplier("vertical",x.vertical),HM:multiplier("horizontal",x.horizontal),DM:multiplier("desplazamiento",x.desplazamiento),AM:multiplier("asimetria",x.asimetria)};
 for(const [k,v] of Object.entries(vals))if(v===undefined)problems.push("Valor no contemplado en la tabla: "+k);else if(v===0)problems.push("Condición crítica: "+k);
