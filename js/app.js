@@ -37,7 +37,44 @@ const w=Number(x.peso);if(!Number.isFinite(w)||w<=0)problems.push("Peso inválid
 const effective=w/(x.dosPersonas==="si"?2:1),product=Object.values(vals).reduce((a,b)=>a*b,1);
 return{vals,weightTotal:w,weightPerPerson:effective,indices:refs.map(([group,mass])=>({group,mass,recommended:mass*product,index:effective/(mass*product)}))};
 }
-function results(){const root=$("summary");root.replaceChildren();if(!p.tasks.length){root.textContent="No hay tareas";return}const table=document.createElement("table");table.className="result-table";table.innerHTML="<thead><tr><th>Tarea</th><th>25 kg</th><th>20 kg H</th><th>20 kg M</th><th>15 kg</th><th>Observación</th></tr></thead>";const body=document.createElement("tbody");p.tasks.forEach(t=>{const r=calc(t.inputs),tr=document.createElement("tr");const cells=[t.name||"Sin nombre",...(r.indices?r.indices.map(i=>fmt(i.index)):["—","—","—","—"]),r.problems?.join("; ")||"Resultado preliminar"];cells.forEach(c=>{const td=document.createElement("td");td.textContent=c;tr.append(td)});tr.onclick=()=>detail(t,r);body.append(tr)});table.append(body);root.append(table);const d=document.createElement("div");d.id="detail";root.append(d)}
+function resultLevel(value){return {label:"Pendiente de validar",color:"#e2e8f0"}}
+function copyTask(t,r){
+ const groups=["Hombres 20–45","Hombres <20 o >45","Mujeres 20–45","Mujeres <20 o >45"];
+ const rows=r.indices?r.indices.map((v,i)=>[groups[i],fmt(v.index),resultLevel(v.index).label]):[];
+ const title=t.name||"Sin nombre";
+ const head='<tr><th colspan="3" style="padding:8px;border:1px solid #8da9c3;background:#6f9ac2;color:#fff;text-align:left">Tarea: '+safe(title)+'</th></tr>';
+ const headers='<tr>'+["Grupo","IR-MMC (IL)","Nivel de riesgo"].map(v=>'<th style="border:1px solid #b9cede;padding:5px;background:#dceaf6">'+safe(v)+'</th>').join("")+'</tr>';
+ const body=rows.map(row=>'<tr>'+row.map((val,i)=>'<td style="border:1px solid #b9cede;padding:5px;'+(i===2?'background:#e2e8f0;':'')+'">'+safe(val)+'</td>').join("")+'</tr>').join("");
+ const error=r.problems?'<tr><td colspan="3" style="border:1px solid #b9cede;padding:5px">'+safe(r.problems.join("; "))+'</td></tr>':"";
+ const html='<table style="font-family:Arial,sans-serif;font-size:10pt;border-collapse:collapse;width:100%">'+head+headers+body+error+'</table>';
+ const plain="Tarea: "+title+"\nGrupo\tIR-MMC (IL)\tNivel de riesgo\n"+(r.problems?r.problems.join("; "):rows.map(a=>a.join("\t")).join("\n"));
+ if(navigator.clipboard?.write&&window.ClipboardItem){navigator.clipboard.write([new ClipboardItem({"text/html":new Blob([html],{type:"text/html"}),"text/plain":new Blob([plain],{type:"text/plain"})})]).then(()=>$("status").textContent="Tabla de "+title+" copiada para Word").catch(()=>$("status").textContent="No se ha podido copiar la tabla")}else if(navigator.clipboard?.writeText){navigator.clipboard.writeText(plain).then(()=>$("status").textContent="Texto de tabla copiado (sin formato)")}
+ else $("status").textContent="La copia no está disponible en este navegador";
+}
+function results(){
+ const root=$("summary");root.replaceChildren();if(!p.tasks.length){root.textContent="No hay tareas";return}
+ const toolbar=document.createElement("div");toolbar.className="results-toolbar";
+ const search=document.createElement("input");search.type="search";search.placeholder="Buscar tarea por nombre...";search.setAttribute("aria-label","Buscar tarea");
+ const expand=document.createElement("button");expand.textContent="Desplegar todas";expand.className="secondary";
+ const collapse=document.createElement("button");collapse.textContent="Contraer todas";collapse.className="secondary";
+ toolbar.append(search,expand,collapse);root.append(toolbar);
+ const container=document.createElement("div");container.className="result-cards";root.append(container);
+ p.tasks.forEach((t,i)=>{
+  const card=document.createElement("details");card.className="result-card";card.dataset.name=(t.name||"").toLowerCase();card.open=false;
+  const header=document.createElement("summary");header.textContent=(i+1)+". "+(t.name||"Tarea sin nombre");
+  const content=document.createElement("div");content.className="result-card-content";
+  const r=calc(t.inputs),table=document.createElement("table");table.className="result-table task-result-table";
+  const thead=document.createElement("thead");const taskHead=document.createElement("tr");const taskTitle=document.createElement("th");taskTitle.colSpan=3;taskTitle.className="task-table-title";taskTitle.textContent="Tarea: "+(t.name||"Sin nombre");taskHead.append(taskTitle);thead.append(taskHead);
+  const columns=document.createElement("tr");["Grupo de referencia","IR-MMC (IL)","Nivel de riesgo"].forEach(c=>{const th=document.createElement("th");th.textContent=c;columns.append(th)});thead.append(columns);table.append(thead);
+  const body=document.createElement("tbody");
+  if(r.indices){const groups=["Hombres 20–45","Hombres <20 o >45","Mujeres 20–45","Mujeres <20 o >45"];r.indices.forEach((v,k)=>{const tr=document.createElement("tr");for(const [n,value] of [groups[k],fmt(v.index),resultLevel(v.index).label].entries()){const td=document.createElement("td");td.textContent=value;if(n===2){td.className="risk-pending";td.title="No se asigna un nivel ni color sin validar el baremo ERGOepm"}tr.append(td)}body.append(tr)})}else{const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=3;td.textContent=(r.problems||["Cálculo no disponible"]).join("; ");tr.append(td);body.append(tr)}table.append(body);
+  const btn=document.createElement("button");btn.className="secondary";btn.textContent="Copiar esta tabla a Word";btn.onclick=()=>copyTask(t,r);
+  content.append(table,btn);card.append(header,content);container.append(card);
+ });
+ search.oninput=()=>{const term=search.value.toLowerCase().trim();container.querySelectorAll(".result-card").forEach(c=>c.hidden=!c.dataset.name.includes(term))};
+ expand.onclick=()=>container.querySelectorAll(".result-card:not([hidden])").forEach(c=>c.open=true);
+ collapse.onclick=()=>container.querySelectorAll(".result-card").forEach(c=>c.open=false);
+}
 function detail(t,r){const d=$("detail");d.replaceChildren();const h=document.createElement("h2");h.textContent="Detalle: "+(t.name||"Tarea");d.append(h);if(r.problems){const v=document.createElement("p");v.textContent=r.problems.join("; ");d.append(v);return}const a=document.createElement("p");a.textContent="Peso total "+fmt(r.weightTotal)+" kg · Peso por persona "+fmt(r.weightPerPerson)+" kg";d.append(a);const b=document.createElement("p");b.textContent=Object.entries(r.vals).map(([k,v])=>k+"="+v).join(" | ");d.append(b);r.indices.forEach(i=>{const q=document.createElement("p");q.textContent=i.group+": peso recomendado "+fmt(i.recommended)+" kg · índice "+fmt(i.index);d.append(q)})}
 async function save(as){try{if(!as&&handle){const w=await handle.createWritable();await w.write(JSON.stringify(p,null,2));await w.close()}else if(window.showSaveFilePicker){handle=await window.showSaveFilePicker({suggestedName:name,types:[{description:"JSON",accept:{"application/json":[".json"]}}]});name=handle.name;const w=await handle.createWritable();await w.write(JSON.stringify(p,null,2));await w.close()}else{let n=prompt("Nombre del archivo",name);if(!n)return;name=n.endsWith(".json")?n:n+".json";const u=URL.createObjectURL(new Blob([JSON.stringify(p,null,2)],{type:"application/json"})),a=document.createElement("a");a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1500)}dirty=false;$("status").textContent="Guardado solicitado"}catch(e){if(e.name!=="AbortError")$("status").textContent=e.message}}
 async function load(f){if(!f)return;try{const q=JSON.parse(await f.text());if(q.application!=="MMC Analyzer"||q.module!=="simple"||!Array.isArray(q.tasks)||q.tasks.length>50)throw Error("Proyecto incompatible");if(dirty&&!confirm("¿Descartar cambios?"))return;p={application:"MMC Analyzer",module:"simple",version:2,meta:q.meta||{},tasks:q.tasks.map(t=>({id:String(t.id),name:String(t.name||""),inputs:{...blank(),...t.inputs}})),simulations:q.simulations||{}};metas.forEach(k=>document.querySelector('[data-meta="'+k+'"]').value=p.meta[k]||"");dirty=false;handle=null;name=f.name;render();nav(1);$("status").textContent="Proyecto cargado"}catch(e){$("status").textContent=e.message}}
