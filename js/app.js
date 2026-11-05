@@ -26,17 +26,51 @@ function multiplier(key,val){
  if(lower&&upper){const dl=n-lower[0],du=upper[0]-n;return dl<du?lower[1]:du<dl?upper[1]:Math.min(lower[1],upper[1]);}
  return lower?.[1]??upper?.[1];
 }
-function calc(x){const problems=[];for(const k of ["peso","horizontal","vertical","desplazamiento","asimetria","frecuencia","agarre","unaMano","dosPersonas","extension","grupoDuracion"])if(!x[k])problems.push("Falta: "+k);if(problems.length)return{problems};
-const vals={VM:multiplier("vertical",x.vertical),HM:multiplier("horizontal",x.horizontal),DM:multiplier("desplazamiento",x.desplazamiento),AM:multiplier("asimetria",x.asimetria)};
-for(const [k,v] of Object.entries(vals))if(v===undefined)problems.push("Valor no contemplado en la tabla: "+k);else if(v===0)problems.push("Condición crítica: "+k);
-const idx=freq.indexOf(Number(x.frecuencia));if(idx<0)problems.push("Frecuencia no coincidente con una fila de ERGOepm");
-vals.FM=FM[x.grupoDuracion]?.[idx];if(vals.FM===undefined)problems.push("Categoría de duración no válida");else if(vals.FM===0)problems.push("Frecuencia crítica");
-vals.CM=x.agarre==="bueno"?1:x.agarre==="malo"?.9:undefined;if(vals.CM===undefined)problems.push("Agarre regular: ERGOepm Simple solo contiene Bueno y Malo; falta equivalencia verificada");
-vals.M1=x.unaMano==="si"?.6:1;vals.M2=x.dosPersonas==="si"?.85:1;vals.EM={8:1,9:.97,10:.93,11:.89,12:.85}[x.extension];if(vals.EM===undefined)problems.push("Extensión temporal fuera de tabla");
-if(x.controlDestino==="si"){for(const [k,col] of [["verticalDestino","vertical"],["horizontalDestino","horizontal"],["asimetriaDestino","asimetria"]]){const v=multiplier(col,x[k]);if(v===undefined)problems.push("Dato de destino no coincidente con tabla: "+k);else if(v===0)problems.push("Condición crítica en destino: "+k);else vals[({vertical:"VM",horizontal:"HM",asimetria:"AM"}[col])]=Math.min(vals[({vertical:"VM",horizontal:"HM",asimetria:"AM"}[col])],v)}}
-const w=Number(x.peso);if(!Number.isFinite(w)||w<=0)problems.push("Peso inválido");if(problems.length)return{problems,vals};
-const effective=w/(x.dosPersonas==="si"?2:1),product=Object.values(vals).reduce((a,b)=>a*b,1);
-return{vals,weightTotal:w,weightPerPerson:effective,indices:refs.map(([group,mass])=>({group,mass,recommended:mass*product,index:effective/(mass*product)}))};
+function calc(x){
+ const problems=[];
+ for(const k of ["peso","horizontal","vertical","desplazamiento","asimetria","frecuencia","agarre","unaMano","dosPersonas","extension","grupoDuracion"])if(!x[k])problems.push("Falta: "+k);
+ if(problems.length)return{problems};
+ const vals={VM:multiplier("vertical",x.vertical),HM:multiplier("horizontal",x.horizontal),DM:multiplier("desplazamiento",x.desplazamiento),AM:multiplier("asimetria",x.asimetria)};
+ for(const [k,v] of Object.entries(vals))if(v===undefined)problems.push("Valor no contemplado en la tabla: "+k);else if(v===0)problems.push("Condición crítica: "+k);
+ const idx=freq.indexOf(Number(x.frecuencia));if(idx<0)problems.push("Frecuencia no coincidente con una fila de ERGOepm");
+ vals.FM=FM[x.grupoDuracion]?.[idx];if(vals.FM===undefined)problems.push("Categoría de duración no válida");else if(vals.FM===0)problems.push("Frecuencia crítica");
+ vals.CM=x.agarre==="bueno"?1:x.agarre==="malo"?.9:undefined;if(vals.CM===undefined)problems.push("Agarre regular: ERGOepm Simple solo contiene Bueno y Malo; falta equivalencia verificada");
+ vals.M1=x.unaMano==="si"?.6:1;vals.M2=x.dosPersonas==="si"?.85:1;vals.EM={8:1,9:.97,10:.93,11:.89,12:.85}[x.extension];if(vals.EM===undefined)problems.push("Extensión temporal fuera de tabla");
+ // Cada posición conserva su geometría completa. DM y los factores comunes se comparten.
+ const destinationVals=x.controlDestino==="si"?{...vals}:null;
+ if(destinationVals){
+  for(const [field,table,factor] of [["verticalDestino","vertical","VM"],["horizontalDestino","horizontal","HM"],["asimetriaDestino","asimetria","AM"]]){
+   const input=x[field];
+   if(input===undefined||input===null||String(input).trim()===""){problems.push("Falta dato de destino: "+field);continue}
+   const value=multiplier(table,input);
+   if(value===undefined)problems.push("Valor de destino no válido: "+field);
+   else if(value===0)problems.push("Condición crítica en destino: "+field);
+   destinationVals[factor]=value;
+  }
+ }
+ const w=Number(x.peso);if(!Number.isFinite(w)||w<=0)problems.push("Peso inválido");
+ if(problems.length)return{problems,vals};
+ const effective=w/(x.dosPersonas==="si"?2:1);
+ const evaluate=factors=>{
+  const product=Object.values(factors).reduce((a,b)=>a*b,1);
+  return{vals:factors,product,indices:refs.map(([group,mass])=>({group,mass,recommended:mass*product,index:effective/(mass*product)}))};
+ };
+ const origin=evaluate(vals),destination=destinationVals?evaluate(destinationVals):null;
+ // El menor peso recomendado determina el mayor índice para cada grupo de referencia.
+ // En caso de igualdad se conserva origen; ambos resultados permanecen disponibles.
+ const governingPosition=destination&&destination.product<origin.product?"destination":"origin";
+ const selected=governingPosition==="destination"?destination:origin;
+ return{vals:selected.vals,weightTotal:w,weightPerPerson:effective,indices:selected.indices,positions:{origin,destination},governingPosition};
+}
+function positionNote(r){
+ if(!r.positions?.destination)return "";
+ if(r.positions.origin.product===r.positions.destination.product)return "Control significativo en destino: origen y destino presentan el mismo índice.";
+ return "Control significativo en destino: se han evaluado ambas posiciones por separado. El mayor índice corresponde a "+(r.governingPosition==="destination"?"destino":"origen")+".";
+}
+function factorText(r){
+ if(r.problems)return r.problems.join("; ");
+ if(r.positions?.destination)return "Origen: "+JSON.stringify(r.positions.origin.vals)+" | Destino: "+JSON.stringify(r.positions.destination.vals)+" | "+positionNote(r);
+ return JSON.stringify(r.vals);
 }
 function resultLevel(value){
  // Informe de condiciones ergonomicas, apartado 2.1, pagina 6.
@@ -56,8 +90,10 @@ function copyTask(t,r){
  const headers='<tr>'+["Grupo","IR-MMC (IL)","Nivel de riesgo"].map(v=>'<th style="border:1px solid #b9cede;padding:5px;background:#dceaf6">'+safe(v)+'</th>').join("")+'</tr>';
  const body=rows.map((row,j)=>'<tr>'+row.map((val,i)=>{const level=r.indices?resultLevel(r.indices[j].index):null;return '<td style="border:1px solid #b9cede;padding:5px;'+(i===2&&level?'background:'+level.color+';color:'+level.text+';':'')+'">'+safe(val)+'</td>'}).join("")+'</tr>').join("");
  const error=r.problems?'<tr><td colspan="3" style="border:1px solid #b9cede;padding:5px">'+safe(r.problems.join("; "))+'</td></tr>':"";
- const html='<table style="font-family:Arial,sans-serif;font-size:10pt;border-collapse:collapse;width:100%">'+head+headers+body+error+'</table>';
- const plain="Tarea: "+title+"\nGrupo\tIR-MMC (IL)\tNivel de riesgo\n"+(r.problems?r.problems.join("; "):rows.map(a=>a.join("\t")).join("\n"));
+ const note=positionNote(r);
+ const noteRow=note?'<tr><td colspan="3" style="border:1px solid #b9cede;padding:5px">'+safe(note)+'</td></tr>':"";
+ const html='<table style="font-family:Arial,sans-serif;font-size:10pt;border-collapse:collapse;width:100%">'+head+noteRow+headers+body+error+'</table>';
+ const plain="Tarea: "+title+(note?"\n"+note:"")+"\nGrupo\tIR-MMC (IL)\tNivel de riesgo\n"+(r.problems?r.problems.join("; "):rows.map(a=>a.join("\t")).join("\n"));
  if(navigator.clipboard?.write&&window.ClipboardItem){navigator.clipboard.write([new ClipboardItem({"text/html":new Blob([html],{type:"text/html"}),"text/plain":new Blob([plain],{type:"text/plain"})})]).then(()=>$("status").textContent="Tabla de "+title+" copiada para Word").catch(()=>$("status").textContent="No se ha podido copiar la tabla")}else if(navigator.clipboard?.writeText){navigator.clipboard.writeText(plain).then(()=>$("status").textContent="Texto de tabla copiado (sin formato)")}
  else $("status").textContent="La copia no está disponible en este navegador";
 }
@@ -79,7 +115,9 @@ function results(){
   const body=document.createElement("tbody");
   if(r.indices){const groups=["Hombres 20–45","Hombres <20 o >45","Mujeres 20–45","Mujeres <20 o >45"];r.indices.forEach((v,k)=>{const tr=document.createElement("tr");for(const [n,value] of [groups[k],fmt(v.index),resultLevel(v.index).label].entries()){const td=document.createElement("td");td.textContent=value;if(n===2){const level=resultLevel(v.index);td.style.backgroundColor=level.color;td.style.color=level.text;td.title="Clasificación ISO 11228-1 según informe de condiciones ergonómicas, apartado 2.1"}tr.append(td)}body.append(tr)})}else{const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=3;td.textContent=(r.problems||["Cálculo no disponible"]).join("; ");tr.append(td);body.append(tr)}table.append(body);
   const btn=document.createElement("button");btn.className="secondary";btn.textContent="Copiar esta tabla a Word";btn.onclick=()=>copyTask(t,r);
-  content.append(table,btn);card.append(header,content);container.append(card);
+  content.append(table);
+  const note=positionNote(r);if(note){const explanation=document.createElement("p");explanation.textContent=note;content.append(explanation)}
+  content.append(btn);card.append(header,content);container.append(card);
  });
  search.oninput=()=>{const term=search.value.toLowerCase().trim();container.querySelectorAll(".result-card").forEach(c=>c.hidden=!c.dataset.name.includes(term))};
  expand.onclick=()=>container.querySelectorAll(".result-card:not([hidden])").forEach(c=>c.open=true);
@@ -90,7 +128,7 @@ async function save(as){try{if(!as&&handle){const w=await handle.createWritable(
 async function load(f){if(!f)return;try{const q=JSON.parse(await f.text());if(q.application!=="MMC Analyzer"||q.module!=="simple"||!Array.isArray(q.tasks)||q.tasks.length>50)throw Error("Proyecto incompatible");if(dirty&&!confirm("¿Descartar cambios?"))return;p={application:"MMC Analyzer",module:"simple",version:2,meta:q.meta||{},tasks:q.tasks.map(t=>({id:String(t.id),name:String(t.name||""),inputs:{...blank(),...t.inputs}})),simulations:q.simulations||{}};metas.forEach(k=>document.querySelector('[data-meta="'+k+'"]').value=p.meta[k]||"");dirty=false;handle=null;name=f.name;render();nav(1);$("status").textContent="Proyecto cargado"}catch(e){$("status").textContent=e.message}}
 function sim(){const t=p.tasks.find(t=>t.id===$("simTask").value);if(!t)return;const current=p.simulations[t.id]||{...t.inputs};const area=$("simInputs");area.replaceChildren();for(const [k,v] of Object.entries(t.inputs)){const lab=document.createElement("label");lab.textContent=k;const inp=document.createElement("input");inp.value=current[k]??v;inp.oninput=()=>{current[k]=inp.value;p.simulations[t.id]=current;changed();showSim(t,current)};lab.append(inp);area.append(lab)}showSim(t,current)}
 function showSim(t,x){const original=calc(t.inputs),mod=calc(x);$("simResults").textContent=original.indices&&mod.indices?original.indices.map((v,i)=>v.group+": "+fmt(v.index)+" → "+fmt(mod.indices[i].index)).join(" | "):"Simulación pendiente: revise datos críticos o incompletos"}
-function copy(type){let rows=[["Tarea","25 kg","20 kg H","20 kg M","15 kg"]];for(const t of p.tasks){const r=calc(t.inputs);rows.push([t.name,...(r.indices?r.indices.map(i=>fmt(i.index)):["—","—","—","—"])])}if(type==="intermediate")rows=[["Tarea","Factores"],...p.tasks.map(t=>{const r=calc(t.inputs);return[t.name,r.vals?JSON.stringify(r.vals):r.problems?.join("; ")]})];if(type==="sim")rows=[["Tarea","Simulación"],...p.tasks.map(t=>[t.name,p.simulations[t.id]?JSON.stringify(p.simulations[t.id]):"Sin simulación"])];const markup='<table style="font-family:Arial;font-size:10pt;border-collapse:collapse">'+rows.map(row=>"<tr>"+row.map(cell=>'<td style="border:1px solid #ccc;padding:4px">'+safe(cell)+"</td>").join("")+"</tr>").join("")+"</table>";const plain=rows.map(r=>r.join("\t")).join("\n");if(navigator.clipboard?.write&&window.ClipboardItem){navigator.clipboard.write([new ClipboardItem({"text/html":new Blob([markup],{type:"text/html"}),"text/plain":new Blob([plain],{type:"text/plain"})})]).then(()=>$("status").textContent="Tabla copiada").catch(()=>$("status").textContent="No se pudo copiar")}else navigator.clipboard?.writeText(plain).then(()=>$("status").textContent="Tabla copiada")}
+function copy(type){let rows=[["Tarea","25 kg","20 kg H","20 kg M","15 kg"]];for(const t of p.tasks){const r=calc(t.inputs);rows.push([t.name,...(r.indices?r.indices.map(i=>fmt(i.index)):["—","—","—","—"])])}if(type==="intermediate")rows=[["Tarea","Factores"],...p.tasks.map(t=>{const r=calc(t.inputs);return[t.name,factorText(r)]})];if(type==="sim")rows=[["Tarea","Simulación"],...p.tasks.map(t=>[t.name,p.simulations[t.id]?JSON.stringify(p.simulations[t.id]):"Sin simulación"])];const markup='<table style="font-family:Arial;font-size:10pt;border-collapse:collapse">'+rows.map(row=>"<tr>"+row.map(cell=>'<td style="border:1px solid #ccc;padding:4px">'+safe(cell)+"</td>").join("")+"</tr>").join("")+"</table>";const plain=rows.map(r=>r.join("\t")).join("\n");if(navigator.clipboard?.write&&window.ClipboardItem){navigator.clipboard.write([new ClipboardItem({"text/html":new Blob([markup],{type:"text/html"}),"text/plain":new Blob([plain],{type:"text/plain"})})]).then(()=>$("status").textContent="Tabla copiada").catch(()=>$("status").textContent="No se pudo copiar")}else navigator.clipboard?.writeText(plain).then(()=>$("status").textContent="Tabla copiada")}
 $("enter").onclick=()=>screen("methods");$("backWelcome").onclick=()=>screen("welcome");document.querySelectorAll("[data-method]").forEach(b=>b.onclick=()=>b.dataset.method==="simple"?(screen("simple"),nav(1)):$("methodNote").textContent="Módulo en preparación");
 $("home").onclick=()=>{if(dirty&&!confirm("Hay cambios sin guardar. ¿Salir?"))return;screen("welcome")};$("prev").onclick=()=>nav(page-1);$("next").onclick=()=>nav(page+1);
 $("addTask").onclick=()=>{if(p.tasks.length>=50)return;const t=task();p.tasks.push(t);sel=t.id;changed();render()};$("taskSelect").onchange=e=>{sel=e.target.value;inputs()};
