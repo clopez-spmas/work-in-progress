@@ -1,6 +1,6 @@
 "use strict";
 (()=> {
-const $=id=>document.getElementById(id), fields=["peso","horizontal","vertical","desplazamiento","asimetria","frecuencia","duracion","agarre","dosPersonas","unaMano","extension","grupoDuracion","controlDestino","verticalDestino","horizontalDestino","asimetriaDestino"],metas=["empresa","puesto","seccion","fecha"];
+const $=id=>document.getElementById(id), fields=["peso","horizontal","vertical","desplazamiento","asimetria","frecuencia","duracion","recuperacion","agarre","dosPersonas","unaMano","extension","grupoDuracion","controlDestino","verticalDestino","horizontalDestino","asimetriaDestino"],metas=["empresa","puesto","seccion","fecha"];
 let p={application:"MMC Analyzer",version:2,module:"simple",meta:{},tasks:[],simulations:{}},sel="",page=1,dirty=false,handle=null,name="MMC-Simple.json";
 const tables={vertical:{0:.77,25:.85,50:.93,75:1,100:.93,125:.85,150:.78},horizontal:{25:1,30:.83,40:.63,50:.5,55:.45,60:.42},desplazamiento:{25:1,30:.97,40:.93,50:.91,70:.88,100:.87,170:.86},asimetria:{0:1,30:.9,60:.81,90:.71,120:.52,135:.57}};
 const freq=[0,.1,.2,.5,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],FM={larga:[1,.85,.85,.81,.75,.65,.55,.45,.35,.27,.22,.18,0,0,0,0,0,0,0],media:[1,.95,.95,.92,.88,.84,.79,.72,.6,.5,.42,.35,.3,.26,0,0,0,0,0],corta:[1,1,1,.97,.94,.91,.88,.84,.8,.75,.7,.6,.52,.45,.41,.37,0,0,0]};
@@ -12,7 +12,7 @@ function changed(){dirty=true;$("status").textContent="Cambios sin guardar"}func
 function nav(n){page=Math.min(3,Math.max(1,n));for(let i=1;i<=3;i++)$("page"+i).hidden=i!==page;$("pageNum").textContent=page;$("prev").disabled=page===1;$("next").disabled=page===3;if(page===2)inputs();if(page===3)results();scrollTo(0,0)}
 function selector(){for(const id of ["taskSelect","simTask"]){const e=$(id);e.replaceChildren();p.tasks.forEach((t,i)=>{const o=document.createElement("option");o.value=t.id;o.textContent=(i+1)+". "+(t.name||"Sin nombre");e.append(o)})}if(!p.tasks.some(t=>t.id===sel))sel=p.tasks[0]?.id||"";$("taskSelect").value=sel}
 function render(){const list=$("taskList");list.replaceChildren();p.tasks.forEach((t,i)=>{const row=document.createElement("div");row.className="task";const label=document.createElement("span");label.textContent="Tarea "+(i+1);const inp=document.createElement("input");inp.value=t.name;inp.maxLength=150;inp.placeholder="Nombre";inp.oninput=()=>{t.name=inp.value;selector();changed()};const edit=document.createElement("button");edit.className="secondary";edit.textContent="Datos";edit.onclick=()=>{sel=t.id;nav(2)};const del=document.createElement("button");del.className="secondary";del.textContent="Eliminar";del.onclick=()=>{if(confirm("¿Eliminar tarea?")){p.tasks.splice(i,1);delete p.simulations[t.id];changed();render()}};row.append(label,inp,edit,del);list.append(row)});$("taskCount").textContent=p.tasks.length+" / 50";$("addTask").disabled=p.tasks.length>=50;selector()}
-function inputs(){selector();const t=p.tasks.find(t=>t.id===sel);document.querySelectorAll("[data-field]").forEach(e=>{e.disabled=!t;e.value=t?.inputs?.[e.dataset.field]??""});$("destination").hidden=!t||t.inputs.controlDestino!=="si"}
+function inputs(){selector();const t=p.tasks.find(t=>t.id===sel);document.querySelectorAll("[data-field]").forEach(e=>{e.disabled=!t;e.value=t?.inputs?.[e.dataset.field]??""});$("destination").hidden=!t||t.inputs.controlDestino!=="si";updateDurationFeedback(t?.inputs)}
 function multiplier(key,val){
  const n=Number(val);if(val===""||!Number.isFinite(n)||n<0)return undefined;
  const entries=Object.entries(tables[key]).map(([k,v])=>[Number(k),v]).sort((a,b)=>a[0]-b[0]);
@@ -26,9 +26,44 @@ function multiplier(key,val){
  if(lower&&upper){const dl=n-lower[0],du=upper[0]-n;return dl<du?lower[1]:du<dl?upper[1]:Math.min(lower[1],upper[1]);}
  return lower?.[1]??upper?.[1];
 }
+// Fuente: manual adjunto, tabla 2.4 y ejemplo de duración (páginas 36-37).
+// Se valida la categoría elegida; FM y EM mantienen las tablas del Excel ERGOepm.
+function durationData(x){
+ const problems=[],missing=v=>v===undefined||v===null||String(v).trim()==="";
+ const numeric=v=>(typeof v==="string"||typeof v==="number")&&!missing(v)?Number(v):NaN;
+ const minutes=numeric(x.duracion),recovery=numeric(x.recuperacion),category=x.grupoDuracion;
+ if(missing(x.duracion))problems.push("Falta la duración del período evaluado (min).");
+ else if(!Number.isFinite(minutes)||minutes<=0)problems.push("La duración debe ser un número mayor que cero.");
+ else if(minutes>720)problems.push("Duración fuera del alcance del Excel: supera 12 horas.");
+ if(!["corta","media","larga"].includes(category))problems.push("Seleccione una categoría de duración válida.");
+ if(!missing(x.recuperacion)&&(!Number.isFinite(recovery)||recovery<0))problems.push("La recuperación debe ser un número igual o mayor que cero.");
+ if(category==="corta"||category==="media"){
+  const maximum=category==="corta"?60:120;
+  if(Number.isFinite(minutes)&&minutes>maximum)problems.push("La duración "+(category==="corta"?"corta":"media")+" no admite más de "+maximum+" minutos. Revise la categoría.");
+  if(missing(x.recuperacion))problems.push("Falta la recuperación posterior para comprobar la duración "+(category==="corta"?"corta":"media")+".");
+  const required=minutes*(category==="corta"?1:0.3);
+  if(Number.isFinite(minutes)&&minutes>0&&Number.isFinite(recovery)&&recovery>=0&&recovery+1e-9<required)problems.push("Recuperación insuficiente para duración "+(category==="corta"?"corta":"media")+": se requieren al menos "+fmt(required)+" min. Revise la categoría y acumule los bloques sin recuperación suficiente.");
+ }
+ const shiftHours=Number(x.extension);
+ if([8,9,10,11,12].includes(shiftHours)&&Number.isFinite(minutes)&&minutes>shiftHours*60)problems.push("La duración evaluada supera las horas indicadas con MMC en el turno. Revise la extensión temporal.");
+ return{problems,minutes,recoveryMinutes:missing(x.recuperacion)?null:recovery,category};
+}
+function durationNote(r){
+ if(!r.duration||r.problems)return "";
+ const d=r.duration;
+ return "Duración "+d.category+": "+fmt(d.minutes)+" min."+(d.recoveryMinutes===null?"":" Recuperación posterior: "+fmt(d.recoveryMinutes)+" min.")+(d.category==="larga"?" Se presuponen las pausas habituales.":"");
+}
+function calculationNote(r){return[durationNote(r),positionNote(r)].filter(Boolean).join(" ")}
+function updateDurationFeedback(x){
+ const out=$("durationFeedback");if(!out)return;
+ if(!x){out.textContent="Seleccione una tarea para comprobar la duración.";return}
+ const duration=durationData(x);
+ out.textContent=duration.problems.length?duration.problems.join(" "):durationNote({duration});
+}
 function calc(x){
  const problems=[];
  for(const k of ["peso","horizontal","vertical","desplazamiento","asimetria","frecuencia","agarre","unaMano","dosPersonas","extension","grupoDuracion"])if(!x[k])problems.push("Falta: "+k);
+ const duration=durationData(x);problems.push(...duration.problems);
  if(problems.length)return{problems};
  const vals={VM:multiplier("vertical",x.vertical),HM:multiplier("horizontal",x.horizontal),DM:multiplier("desplazamiento",x.desplazamiento),AM:multiplier("asimetria",x.asimetria)};
  for(const [k,v] of Object.entries(vals))if(v===undefined)problems.push("Valor no contemplado en la tabla: "+k);else if(v===0)problems.push("Condición crítica: "+k);
@@ -60,7 +95,7 @@ function calc(x){
  // En caso de igualdad se conserva origen; ambos resultados permanecen disponibles.
  const governingPosition=destination&&destination.product<origin.product?"destination":"origin";
  const selected=governingPosition==="destination"?destination:origin;
- return{vals:selected.vals,weightTotal:w,weightPerPerson:effective,indices:selected.indices,positions:{origin,destination},governingPosition};
+ return{vals:selected.vals,weightTotal:w,weightPerPerson:effective,indices:selected.indices,positions:{origin,destination},governingPosition,duration};
 }
 function positionNote(r){
  if(!r.positions?.destination)return "";
@@ -69,8 +104,8 @@ function positionNote(r){
 }
 function factorText(r){
  if(r.problems)return r.problems.join("; ");
- if(r.positions?.destination)return "Origen: "+JSON.stringify(r.positions.origin.vals)+" | Destino: "+JSON.stringify(r.positions.destination.vals)+" | "+positionNote(r);
- return JSON.stringify(r.vals);
+ if(r.positions?.destination)return "Origen: "+JSON.stringify(r.positions.origin.vals)+" | Destino: "+JSON.stringify(r.positions.destination.vals)+" | "+calculationNote(r);
+ return JSON.stringify(r.vals)+" | "+durationNote(r);
 }
 function resultLevel(value){
  // Informe de condiciones ergonomicas, apartado 2.1, pagina 6.
@@ -90,7 +125,7 @@ function copyTask(t,r){
  const headers='<tr>'+["Grupo","IR-MMC (IL)","Nivel de riesgo"].map(v=>'<th style="border:1px solid #b9cede;padding:5px;background:#dceaf6">'+safe(v)+'</th>').join("")+'</tr>';
  const body=rows.map((row,j)=>'<tr>'+row.map((val,i)=>{const level=r.indices?resultLevel(r.indices[j].index):null;return '<td style="border:1px solid #b9cede;padding:5px;'+(i===2&&level?'background:'+level.color+';color:'+level.text+';':'')+'">'+safe(val)+'</td>'}).join("")+'</tr>').join("");
  const error=r.problems?'<tr><td colspan="3" style="border:1px solid #b9cede;padding:5px">'+safe(r.problems.join("; "))+'</td></tr>':"";
- const note=positionNote(r);
+ const note=calculationNote(r);
  const noteRow=note?'<tr><td colspan="3" style="border:1px solid #b9cede;padding:5px">'+safe(note)+'</td></tr>':"";
  const html='<table style="font-family:Arial,sans-serif;font-size:10pt;border-collapse:collapse;width:100%">'+head+noteRow+headers+body+error+'</table>';
  const plain="Tarea: "+title+(note?"\n"+note:"")+"\nGrupo\tIR-MMC (IL)\tNivel de riesgo\n"+(r.problems?r.problems.join("; "):rows.map(a=>a.join("\t")).join("\n"));
@@ -116,7 +151,7 @@ function results(){
   if(r.indices){const groups=["Hombres 20–45","Hombres <20 o >45","Mujeres 20–45","Mujeres <20 o >45"];r.indices.forEach((v,k)=>{const tr=document.createElement("tr");for(const [n,value] of [groups[k],fmt(v.index),resultLevel(v.index).label].entries()){const td=document.createElement("td");td.textContent=value;if(n===2){const level=resultLevel(v.index);td.style.backgroundColor=level.color;td.style.color=level.text;td.title="Clasificación ISO 11228-1 según informe de condiciones ergonómicas, apartado 2.1"}tr.append(td)}body.append(tr)})}else{const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=3;td.textContent=(r.problems||["Cálculo no disponible"]).join("; ");tr.append(td);body.append(tr)}table.append(body);
   const btn=document.createElement("button");btn.className="secondary";btn.textContent="Copiar esta tabla a Word";btn.onclick=()=>copyTask(t,r);
   content.append(table);
-  const note=positionNote(r);if(note){const explanation=document.createElement("p");explanation.textContent=note;content.append(explanation)}
+  const note=calculationNote(r);if(note){const explanation=document.createElement("p");explanation.textContent=note;content.append(explanation)}
   content.append(btn);card.append(header,content);container.append(card);
  });
  search.oninput=()=>{const term=search.value.toLowerCase().trim();container.querySelectorAll(".result-card").forEach(c=>c.hidden=!c.dataset.name.includes(term))};
@@ -126,13 +161,13 @@ function results(){
 function detail(t,r){const d=$("detail");d.replaceChildren();const h=document.createElement("h2");h.textContent="Detalle: "+(t.name||"Tarea");d.append(h);if(r.problems){const v=document.createElement("p");v.textContent=r.problems.join("; ");d.append(v);return}const a=document.createElement("p");a.textContent="Peso total "+fmt(r.weightTotal)+" kg · Peso por persona "+fmt(r.weightPerPerson)+" kg";d.append(a);const b=document.createElement("p");b.textContent=Object.entries(r.vals).map(([k,v])=>k+"="+v).join(" | ");d.append(b);r.indices.forEach(i=>{const q=document.createElement("p");q.textContent=i.group+": peso recomendado "+fmt(i.recommended)+" kg · índice "+fmt(i.index);d.append(q)})}
 async function save(as){try{if(!as&&handle){const w=await handle.createWritable();await w.write(JSON.stringify(p,null,2));await w.close()}else if(window.showSaveFilePicker){handle=await window.showSaveFilePicker({suggestedName:name,types:[{description:"JSON",accept:{"application/json":[".json"]}}]});name=handle.name;const w=await handle.createWritable();await w.write(JSON.stringify(p,null,2));await w.close()}else{let n=prompt("Nombre del archivo",name);if(!n)return;name=n.endsWith(".json")?n:n+".json";const u=URL.createObjectURL(new Blob([JSON.stringify(p,null,2)],{type:"application/json"})),a=document.createElement("a");a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1500)}dirty=false;$("status").textContent="Guardado solicitado"}catch(e){if(e.name!=="AbortError")$("status").textContent=e.message}}
 async function load(f){if(!f)return;try{const q=JSON.parse(await f.text());if(q.application!=="MMC Analyzer"||q.module!=="simple"||!Array.isArray(q.tasks)||q.tasks.length>50)throw Error("Proyecto incompatible");if(dirty&&!confirm("¿Descartar cambios?"))return;p={application:"MMC Analyzer",module:"simple",version:2,meta:q.meta||{},tasks:q.tasks.map(t=>({id:String(t.id),name:String(t.name||""),inputs:{...blank(),...t.inputs}})),simulations:q.simulations||{}};metas.forEach(k=>document.querySelector('[data-meta="'+k+'"]').value=p.meta[k]||"");dirty=false;handle=null;name=f.name;render();nav(1);$("status").textContent="Proyecto cargado"}catch(e){$("status").textContent=e.message}}
-function sim(){const t=p.tasks.find(t=>t.id===$("simTask").value);if(!t)return;const current=p.simulations[t.id]||{...t.inputs};const area=$("simInputs");area.replaceChildren();for(const [k,v] of Object.entries(t.inputs)){const lab=document.createElement("label");lab.textContent=k;const inp=document.createElement("input");inp.value=current[k]??v;inp.oninput=()=>{current[k]=inp.value;p.simulations[t.id]=current;changed();showSim(t,current)};lab.append(inp);area.append(lab)}showSim(t,current)}
-function showSim(t,x){const original=calc(t.inputs),mod=calc(x);$("simResults").textContent=original.indices&&mod.indices?original.indices.map((v,i)=>v.group+": "+fmt(v.index)+" → "+fmt(mod.indices[i].index)).join(" | "):"Simulación pendiente: revise datos críticos o incompletos"}
+function sim(){const t=p.tasks.find(t=>t.id===$("simTask").value);if(!t)return;const current=p.simulations[t.id]||{...t.inputs};const area=$("simInputs");area.replaceChildren();for(const [k,v] of Object.entries(t.inputs)){const lab=document.createElement("label");lab.textContent=({duracion:"Duración del período evaluado (min)",recuperacion:"Recuperación posterior (min)",grupoDuracion:"Categoría: corta, media o larga"}[k]||k);const inp=document.createElement("input");inp.value=current[k]??v;inp.oninput=()=>{current[k]=inp.value;p.simulations[t.id]=current;changed();showSim(t,current)};lab.append(inp);area.append(lab)}showSim(t,current)}
+function showSim(t,x){const original=calc(t.inputs),mod=calc(x);$("simResults").textContent=original.indices&&mod.indices?original.indices.map((v,i)=>v.group+": "+fmt(v.index)+" → "+fmt(mod.indices[i].index)).join(" | "):"Simulación pendiente. "+(original.problems?"Datos originales: "+original.problems.join("; ")+". ":"")+(mod.problems?"Datos simulados: "+mod.problems.join("; "):"")}
 function copy(type){let rows=[["Tarea","25 kg","20 kg H","20 kg M","15 kg"]];for(const t of p.tasks){const r=calc(t.inputs);rows.push([t.name,...(r.indices?r.indices.map(i=>fmt(i.index)):["—","—","—","—"])])}if(type==="intermediate")rows=[["Tarea","Factores"],...p.tasks.map(t=>{const r=calc(t.inputs);return[t.name,factorText(r)]})];if(type==="sim")rows=[["Tarea","Simulación"],...p.tasks.map(t=>[t.name,p.simulations[t.id]?JSON.stringify(p.simulations[t.id]):"Sin simulación"])];const markup='<table style="font-family:Arial;font-size:10pt;border-collapse:collapse">'+rows.map(row=>"<tr>"+row.map(cell=>'<td style="border:1px solid #ccc;padding:4px">'+safe(cell)+"</td>").join("")+"</tr>").join("")+"</table>";const plain=rows.map(r=>r.join("\t")).join("\n");if(navigator.clipboard?.write&&window.ClipboardItem){navigator.clipboard.write([new ClipboardItem({"text/html":new Blob([markup],{type:"text/html"}),"text/plain":new Blob([plain],{type:"text/plain"})})]).then(()=>$("status").textContent="Tabla copiada").catch(()=>$("status").textContent="No se pudo copiar")}else navigator.clipboard?.writeText(plain).then(()=>$("status").textContent="Tabla copiada")}
 $("enter").onclick=()=>screen("methods");$("backWelcome").onclick=()=>screen("welcome");document.querySelectorAll("[data-method]").forEach(b=>b.onclick=()=>b.dataset.method==="simple"?(screen("simple"),nav(1)):$("methodNote").textContent="Módulo en preparación");
 $("home").onclick=()=>{if(dirty&&!confirm("Hay cambios sin guardar. ¿Salir?"))return;screen("welcome")};$("prev").onclick=()=>nav(page-1);$("next").onclick=()=>nav(page+1);
 $("addTask").onclick=()=>{if(p.tasks.length>=50)return;const t=task();p.tasks.push(t);sel=t.id;changed();render()};$("taskSelect").onchange=e=>{sel=e.target.value;inputs()};
-document.querySelectorAll("[data-field]").forEach(e=>e.addEventListener("input",()=>{const t=p.tasks.find(t=>t.id===sel);if(t){t.inputs[e.dataset.field]=e.value;if(e.dataset.field==="controlDestino")$("destination").hidden=e.value!=="si";changed()}}));
+document.querySelectorAll("[data-field]").forEach(e=>e.addEventListener("input",()=>{const t=p.tasks.find(t=>t.id===sel);if(t){t.inputs[e.dataset.field]=e.value;if(e.dataset.field==="controlDestino")$("destination").hidden=e.value!=="si";updateDurationFeedback(t.inputs);changed()}}));
 document.querySelectorAll("[data-meta]").forEach(e=>e.addEventListener("input",()=>{p.meta[e.dataset.meta]=e.value;changed()}));
 $("save").onclick=()=>save(false);$("saveAs").onclick=()=>save(true);$("load").onchange=e=>{load(e.target.files[0]);e.target.value=""};
 $("openSimulation").onclick=()=>{$("simulation").hidden=!$("simulation").hidden;selector();sim()};
