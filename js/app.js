@@ -5,6 +5,32 @@ let p={application:"MMC Analyzer",version:2,module:"simple",meta:{},tasks:[],sim
 const tables={vertical:{0:.77,25:.85,50:.93,75:1,100:.93,125:.85,150:.78},horizontal:{25:1,30:.83,40:.63,50:.5,55:.45,60:.42},desplazamiento:{25:1,30:.97,40:.93,50:.91,70:.88,100:.87,170:.86},asimetria:{0:1,30:.9,60:.81,90:.71,120:.52,135:.57}};
 const freq=[0,.1,.2,.5,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],FM={larga:[1,.85,.85,.81,.75,.65,.55,.45,.35,.27,.22,.18,0,0,0,0,0,0,0],media:[1,.95,.95,.92,.88,.84,.79,.72,.6,.5,.42,.35,.3,.26,0,0,0,0,0],corta:[1,1,1,.97,.94,.91,.88,.84,.8,.75,.7,.6,.52,.45,.41,.37,0,0,0]};
 const refs=[["Hombres 20–45",25],["Hombres fuera 20–45",20],["Mujeres 20–45",20],["Mujeres fuera 20–45",15]];
+// Manual adjunto: tabla 2.16 (p. 64) y ejemplo de interpolación (p. 77).
+// Columnas para V>=75 cm verificadas en el Excel CLI, 4.Factores, BB:BD;
+// las de V<75 cm coinciden con BE:BG y la tabla del Excel LI simple.
+const FMHigh={corta:[...FM.corta.slice(0,16),.34,.31,.28],media:[...FM.media.slice(0,14),.23,.21,0,0,0],larga:[...FM.larga.slice(0,12),.15,.13,0,0,0,0,0]};
+function frequencyMultiplier(input,category,height){
+ if((typeof input!=="number"&&typeof input!=="string")||String(input).trim()==="")return undefined;
+ const value=Number(input),vertical=Number(height);
+ if(!Number.isFinite(value)||value<0||!Number.isFinite(vertical)||vertical<0||!FM[category])return undefined;
+ if(value>15)return 0;
+ // Tramos explícitos del Excel LI: <0,1; 0,1<=F<0,2; F=0,2.
+ // No se interpola a través del salto de la baja frecuencia.
+ if(value<.1)return 1;
+ if(value<=.2)return FM[category][2];
+ const column=vertical>=75?FMHigh[category]:FM[category];
+ const upper=freq.findIndex(f=>f>=value);
+ if(freq[upper]===value)return column[upper];
+ const lower=upper-1,ratio=(value-freq[lower])/(freq[upper]-freq[lower]);
+ // Conservar precisión durante el cálculo, como las celdas intermedias del Excel CLI.
+ return column[lower]+ratio*(column[upper]-column[lower]);
+}
+function frequencyNote(r){
+ if(!r.frequency||r.problems)return "";
+ const factor=v=>v.toLocaleString("es-ES",{maximumFractionDigits:6});
+ const detail=r.positions?.destination?"FM origen: "+factor(r.positions.origin.vals.FM)+"; FM destino: "+factor(r.positions.destination.vals.FM):"FM: "+factor(r.vals.FM);
+ return "Frecuencia: "+factor(r.frequency.value)+" lev/min. "+detail+" ("+r.frequency.method+").";
+}
 const fmt=v=>Number.isFinite(v)?v.toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2}):"—";
 const safe=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function blank(){return Object.fromEntries(fields.map(k=>[k,""]))}function task(){return{id:crypto.randomUUID(),name:"",inputs:blank()}}
@@ -53,7 +79,7 @@ function durationNote(r){
  const d=r.duration;
  return "Duración "+d.category+": "+fmt(d.minutes)+" min."+(d.recoveryMinutes===null?"":" Recuperación posterior: "+fmt(d.recoveryMinutes)+" min.")+(d.category==="larga"?" Se presuponen las pausas habituales.":"");
 }
-function calculationNote(r){return[durationNote(r),positionNote(r)].filter(Boolean).join(" ")}
+function calculationNote(r){return[durationNote(r),frequencyNote(r),positionNote(r)].filter(Boolean).join(" ")}
 function updateDurationFeedback(x){
  const out=$("durationFeedback");if(!out)return;
  if(!x){out.textContent="Seleccione una tarea para comprobar la duración.";return}
@@ -62,13 +88,13 @@ function updateDurationFeedback(x){
 }
 function calc(x){
  const problems=[];
- for(const k of ["peso","horizontal","vertical","desplazamiento","asimetria","frecuencia","agarre","unaMano","dosPersonas","extension","grupoDuracion"])if(!x[k])problems.push("Falta: "+k);
+ for(const k of ["peso","horizontal","vertical","desplazamiento","asimetria","agarre","unaMano","dosPersonas","extension","grupoDuracion"])if(!x[k])problems.push("Falta: "+k);
  const duration=durationData(x);problems.push(...duration.problems);
  if(problems.length)return{problems};
  const vals={VM:multiplier("vertical",x.vertical),HM:multiplier("horizontal",x.horizontal),DM:multiplier("desplazamiento",x.desplazamiento),AM:multiplier("asimetria",x.asimetria)};
  for(const [k,v] of Object.entries(vals))if(v===undefined)problems.push("Valor no contemplado en la tabla: "+k);else if(v===0)problems.push("Condición crítica: "+k);
- const idx=freq.indexOf(Number(x.frecuencia));if(idx<0)problems.push("Frecuencia no coincidente con una fila de ERGOepm");
- vals.FM=FM[x.grupoDuracion]?.[idx];if(vals.FM===undefined)problems.push("Categoría de duración no válida");else if(vals.FM===0)problems.push("Frecuencia crítica");
+ vals.FM=frequencyMultiplier(x.frecuencia,x.grupoDuracion,x.vertical);
+ if(vals.FM===undefined)problems.push("No se puede determinar FM: revise frecuencia, altura y categoría de duración.");else if(vals.FM===0)problems.push("Frecuencia crítica en origen");
  vals.CM=x.agarre==="bueno"?1:x.agarre==="malo"?.9:undefined;if(vals.CM===undefined)problems.push("Agarre regular: ERGOepm Simple solo contiene Bueno y Malo; falta equivalencia verificada");
  vals.M1=x.unaMano==="si"?.6:1;vals.M2=x.dosPersonas==="si"?.85:1;vals.EM={8:1,9:.97,10:.93,11:.89,12:.85}[x.extension];if(vals.EM===undefined)problems.push("Extensión temporal fuera de tabla");
  // Cada posición conserva su geometría completa. DM y los factores comunes se comparten.
@@ -82,6 +108,9 @@ function calc(x){
    else if(value===0)problems.push("Condición crítica en destino: "+field);
    destinationVals[factor]=value;
   }
+  destinationVals.FM=frequencyMultiplier(x.frecuencia,x.grupoDuracion,x.verticalDestino);
+  if(destinationVals.FM===undefined)problems.push("No se puede determinar FM en destino: revise frecuencia y altura de destino.");
+  else if(destinationVals.FM===0)problems.push("Frecuencia crítica en destino");
  }
  const w=Number(x.peso);if(!Number.isFinite(w)||w<=0)problems.push("Peso inválido");
  if(problems.length)return{problems,vals};
@@ -95,7 +124,8 @@ function calc(x){
  // En caso de igualdad se conserva origen; ambos resultados permanecen disponibles.
  const governingPosition=destination&&destination.product<origin.product?"destination":"origin";
  const selected=governingPosition==="destination"?destination:origin;
- return{vals:selected.vals,weightTotal:w,weightPerPerson:effective,indices:selected.indices,positions:{origin,destination},governingPosition,duration};
+ const frequencyValue=Number(x.frecuencia),frequency={value:frequencyValue,method:frequencyValue<=.2?"tramo de baja frecuencia del Excel LI":freq.includes(frequencyValue)?"valor tabulado":"interpolación entre filas"};
+ return{vals:selected.vals,weightTotal:w,weightPerPerson:effective,indices:selected.indices,positions:{origin,destination},governingPosition,duration,frequency};
 }
 function positionNote(r){
  if(!r.positions?.destination)return "";
@@ -105,7 +135,7 @@ function positionNote(r){
 function factorText(r){
  if(r.problems)return r.problems.join("; ");
  if(r.positions?.destination)return "Origen: "+JSON.stringify(r.positions.origin.vals)+" | Destino: "+JSON.stringify(r.positions.destination.vals)+" | "+calculationNote(r);
- return JSON.stringify(r.vals)+" | "+durationNote(r);
+ return JSON.stringify(r.vals)+" | "+calculationNote(r);
 }
 function resultLevel(value){
  // Informe de condiciones ergonomicas, apartado 2.1, pagina 6.
