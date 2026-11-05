@@ -79,7 +79,22 @@ function durationNote(r){
  const d=r.duration;
  return "Duración "+d.category+": "+fmt(d.minutes)+" min."+(d.recoveryMinutes===null?"":" Recuperación posterior: "+fmt(d.recoveryMinutes)+" min.")+(d.category==="larga"?" Se presuponen las pausas habituales.":"");
 }
-function calculationNote(r){return[durationNote(r),frequencyNote(r),positionNote(r)].filter(Boolean).join(" ")}
+// El Excel LI simple sólo contiene Bueno=1 y Malo=0,9.
+// Para Regular, usar la tabla 2.15 (p. 63) del manual adjunto:
+// CM=0,95 si V<75 cm; CM=1 si V>=75 cm, en cada posición por separado.
+// No trasladar aquí el 0,95 fijo de la fórmula V15 del Excel CLI.
+function couplingMultiplier(quality,height){
+ if(!["bueno","regular","malo"].includes(quality))return undefined;
+ if((typeof height!=="number"&&typeof height!=="string")||String(height).trim()==="")return undefined;
+ const vertical=Number(height);if(!Number.isFinite(vertical)||vertical<0)return undefined;
+ return quality==="bueno"?1:quality==="malo"?.9:vertical<75?.95:1;
+}
+function couplingNote(r){
+ if(r.coupling!=="regular"||r.problems)return "";
+ const factors=r.positions?.destination?"CM origen: "+fmt(r.positions.origin.vals.CM)+"; CM destino: "+fmt(r.positions.destination.vals.CM):"CM: "+fmt(r.vals.CM);
+ return "Agarre regular. "+factors+" (tabla 2.15 del manual).";
+}
+function calculationNote(r){return[durationNote(r),frequencyNote(r),couplingNote(r),positionNote(r)].filter(Boolean).join(" ")}
 function updateDurationFeedback(x){
  const out=$("durationFeedback");if(!out)return;
  if(!x){out.textContent="Seleccione una tarea para comprobar la duración.";return}
@@ -95,7 +110,7 @@ function calc(x){
  for(const [k,v] of Object.entries(vals))if(v===undefined)problems.push("Valor no contemplado en la tabla: "+k);else if(v===0)problems.push("Condición crítica: "+k);
  vals.FM=frequencyMultiplier(x.frecuencia,x.grupoDuracion,x.vertical);
  if(vals.FM===undefined)problems.push("No se puede determinar FM: revise frecuencia, altura y categoría de duración.");else if(vals.FM===0)problems.push("Frecuencia crítica en origen");
- vals.CM=x.agarre==="bueno"?1:x.agarre==="malo"?.9:undefined;if(vals.CM===undefined)problems.push("Agarre regular: ERGOepm Simple solo contiene Bueno y Malo; falta equivalencia verificada");
+ vals.CM=couplingMultiplier(x.agarre,x.vertical);if(vals.CM===undefined)problems.push("No se puede determinar CM: revise el tipo de agarre y la altura de origen.");
  vals.M1=x.unaMano==="si"?.6:1;vals.M2=x.dosPersonas==="si"?.85:1;vals.EM={8:1,9:.97,10:.93,11:.89,12:.85}[x.extension];if(vals.EM===undefined)problems.push("Extensión temporal fuera de tabla");
  // Cada posición conserva su geometría completa. DM y los factores comunes se comparten.
  const destinationVals=x.controlDestino==="si"?{...vals}:null;
@@ -111,6 +126,8 @@ function calc(x){
   destinationVals.FM=frequencyMultiplier(x.frecuencia,x.grupoDuracion,x.verticalDestino);
   if(destinationVals.FM===undefined)problems.push("No se puede determinar FM en destino: revise frecuencia y altura de destino.");
   else if(destinationVals.FM===0)problems.push("Frecuencia crítica en destino");
+  destinationVals.CM=couplingMultiplier(x.agarre,x.verticalDestino);
+  if(destinationVals.CM===undefined)problems.push("No se puede determinar CM en destino: revise el tipo de agarre y la altura de destino.");
  }
  const w=Number(x.peso);if(!Number.isFinite(w)||w<=0)problems.push("Peso inválido");
  if(problems.length)return{problems,vals};
@@ -125,7 +142,7 @@ function calc(x){
  const governingPosition=destination&&destination.product<origin.product?"destination":"origin";
  const selected=governingPosition==="destination"?destination:origin;
  const frequencyValue=Number(x.frecuencia),frequency={value:frequencyValue,method:frequencyValue<=.2?"tramo de baja frecuencia del Excel LI":freq.includes(frequencyValue)?"valor tabulado":"interpolación entre filas"};
- return{vals:selected.vals,weightTotal:w,weightPerPerson:effective,indices:selected.indices,positions:{origin,destination},governingPosition,duration,frequency};
+ return{vals:selected.vals,weightTotal:w,weightPerPerson:effective,indices:selected.indices,positions:{origin,destination},governingPosition,duration,frequency,coupling:x.agarre};
 }
 function positionNote(r){
  if(!r.positions?.destination)return "";
