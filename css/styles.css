@@ -40,3 +40,21 @@
 .mmc-shell .status{min-height:24px;margin:6px 0;color:#005a9c;font-size:14px}
 .mmc-shell .mmc-screen{padding:24px}
 @media(max-width:760px){.mmc-shell .screen-nav{flex-wrap:wrap}.mmc-shell .screen-counter{order:-1;flex-basis:100%}.mmc-shell .mmc-screen{padding:18px}}
+
+/* Horario independiente de cada tarea. */
+.schedule-blocks{display:grid;gap:12px;margin:16px 0}
+.schedule-block .block-heading{grid-column:1 / -1;color:#245982}
+.schedule-block{display:grid;grid-template-columns:1fr 1fr 1.5fr 1.6fr;gap:12px;padding:16px;border:1px solid #b9cede;border-radius:10px;background:#f8fbfe}
+.schedule-block .block-note{grid-column:1 / 4}.schedule-block button{align-self:end;justify-self:end}
+.check-field{display:flex;flex-direction:row;align-items:center;gap:10px}.check-field input{width:auto}
+.post-recovery{display:block;max-width:620px;margin:20px 0}.post-recovery input{max-width:220px;display:block}
+.schedule-problems{border-left:4px solid #c53030;background:#fff5f5;padding:12px 18px;color:#8a2020;border-radius:6px}
+.schedule-problems li{margin:5px 0}.schedule-success{border-left:4px solid #16834a;background:#f0fff4;padding:12px 16px;border-radius:6px}
+.schedule-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}
+.schedule-metric{border:1px solid #cbdce9;border-radius:8px;padding:12px}.schedule-metric strong{display:block;font-size:1.3rem;color:#005a9c;margin-top:6px}
+.schedule-strip{display:flex;min-height:34px;overflow:hidden;border-radius:7px;border:1px solid #cbdce9;margin:12px 0}
+.schedule-strip span{min-width:1px}.schedule-strip .mmc{background:#0078d4}.schedule-strip .pausa{background:#2f855a}.schedule-strip .otra{background:#a0aec0}.schedule-strip .ligera{background:#8bd5bd}
+.schedule-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.85rem}.schedule-legend span:before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;background:var(--swatch)}
+.schedule-periods{padding-left:24px}.schedule-periods li{margin-bottom:9px}.automatic-field{background:#edf2f7;color:#334155}
+@media(max-width:760px){.schedule-block{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.schedule-block .block-note{grid-column:1 / -1}.schedule-block button{grid-column:1 / -1}.schedule-metrics{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.fields.schedule-shift{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.schedule-shift .check-field{grid-column:1 / -1}.schedule-block input,.schedule-block select{min-width:0;width:100%}.task{flex-wrap:wrap}.task input{flex-basis:60%}}
+
