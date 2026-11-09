@@ -44,6 +44,8 @@ function multiplier(key,val){
  const n=Number(val);if(!Number.isFinite(n)||n<0||!tables[key])return undefined;
  if(key==="horizontal"&&n<20)return undefined;
  const entries=Object.entries(tables[key]).map(([k,v])=>[Number(k),v]).sort((a,b)=>a[0]-b[0]);
+ // Criterio acordado: usar (175 cm, VM=0) como extremo para V entre 150 y 175 cm.
+ if(key==="vertical")entries.push([175,0]);
  // Conservar los mínimos de aplicación ya existentes.
  if(key==="desplazamiento"&&n<=25)return 1;
  if(key==="horizontal"&&n<=25)return 1;
@@ -52,7 +54,7 @@ function multiplier(key,val){
  if(n>maxima[key])return 0;
  const lower=entries.filter(([k])=>k<n).at(-1),upper=entries.find(([k])=>k>n);
  // Interpolación lineal entre dos puntos numéricos del Excel LI.
- // Las columnas ">175" y ">63" son condiciones críticas, no puntos de interpolación.
+ // V usa el extremo acordado de 175 cm; los tramos >175 y >63 siguen siendo críticos.
  // Sin ambos extremos, no extrapolar ni prolongar el último coeficiente.
  if(!lower||!upper)return undefined;
  return lower[1]+(n-lower[0])/(upper[0]-lower[0])*(upper[1]-lower[1]);
@@ -99,7 +101,7 @@ function couplingNote(r){
  const factors=r.positions?.destination?"CM origen: "+fmt(r.positions.origin.vals.CM)+"; CM destino: "+fmt(r.positions.destination.vals.CM):"CM: "+fmt(r.vals.CM);
  return "Agarre regular. "+factors+" (tabla 2.15 del manual).";
 }
-function geometryNote(r){return r.problems?"":"VM, HM, DM y AM: coeficientes tabulados del Excel LI e interpolación lineal entre puntos numéricos. Sin dos extremos tabulados no se extrapola. Se mantienen los mínimos de aplicación de HM y DM.";}
+function geometryNote(r){return r.problems?"":"VM, HM, DM y AM: coeficientes tabulados del Excel LI e interpolación lineal entre puntos numéricos. Para V entre 150 y 175 cm se adopta el extremo acordado VM=0 a 175 cm; por encima, VM=0. En los demás tramos sin dos extremos no se extrapola. Se mantienen los mínimos de aplicación de HM y DM.";}
 function calculationNote(r){return[geometryNote(r),durationNote(r),frequencyNote(r),couplingNote(r),positionNote(r)].filter(Boolean).join(" ")}
 function updateDurationFeedback(x){
  const out=$("durationFeedback");if(!out)return;
