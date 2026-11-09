@@ -40,14 +40,23 @@ function selector(){for(const id of ["taskSelect","simTask"]){const e=$(id);e.re
 function render(){const list=$("taskList");list.replaceChildren();p.tasks.forEach((t,i)=>{const row=document.createElement("div");row.className="task";const label=document.createElement("span");label.textContent="Tarea "+(i+1);const inp=document.createElement("input");inp.value=t.name;inp.maxLength=150;inp.placeholder="Nombre";inp.oninput=()=>{t.name=inp.value;selector();changed()};const edit=document.createElement("button");edit.className="secondary";edit.textContent="Datos";edit.onclick=()=>{sel=t.id;nav(2)};const del=document.createElement("button");del.className="secondary";del.textContent="Eliminar";del.onclick=()=>{if(confirm("¿Eliminar tarea?")){p.tasks.splice(i,1);delete p.simulations[t.id];changed();render()}};row.append(label,inp,edit,del);list.append(row)});$("taskCount").textContent=p.tasks.length+" / 50";$("addTask").disabled=p.tasks.length>=50;selector()}
 function inputs(){selector();const t=p.tasks.find(t=>t.id===sel);document.querySelectorAll("[data-field]").forEach(e=>{e.disabled=!t;e.value=t?.inputs?.[e.dataset.field]??""});$("destination").hidden=!t||t.inputs.controlDestino!=="si";updateDurationFeedback(t?.inputs)}
 function multiplier(key,val){
- const n=Number(val);if(val===""||!Number.isFinite(n)||n<0)return undefined;
+ if((typeof val!=="number"&&typeof val!=="string")||String(val).trim()==="")return undefined;
+ const n=Number(val);if(!Number.isFinite(n)||n<0||!tables[key])return undefined;
+ if(key==="horizontal"&&n<20)return undefined;
  const entries=Object.entries(tables[key]).map(([k,v])=>[Number(k),v]).sort((a,b)=>a[0]-b[0]);
  if(key==="desplazamiento"&&n<=25)return 1;
  const exact=entries.find(([k])=>k===n);if(exact)return exact[1];
  const maxima={vertical:175,horizontal:63,desplazamiento:175,asimetria:135};
  if(n>maxima[key])return 0;
+ // Criterio provisional: conservar los puntos Excel y los límites exactos vigentes.
+ // V=175, H=63 y D=175 siguen pendientes de resolver entre referencias.
+ if(n===maxima[key]&&key!=="asimetria")return entries.at(-1)[1];
+ // Manual, pp. 51–55: ecuaciones para valores no tabulados, sin redondeo intermedio.
+ if(key==="vertical")return 1-.003*Math.abs(n-75);
+ if(key==="horizontal")return n<=25?1:25/n;
+ if(key==="desplazamiento")return .82+4.5/n;
  const lower=entries.filter(([k])=>k<n).at(-1),upper=entries.find(([k])=>k>n);
- // Selección del punto más próximo de la tabla Excel (ej.: V=110 cm -> V=100 cm, VM=0,93).
+ // Asimetría conserva el criterio Excel previo; fuera del alcance de esta corrección.
  // En un empate se selecciona el coeficiente menor, y se advierte en el informe metodológico.
  if(lower&&upper){const dl=n-lower[0],du=upper[0]-n;return dl<du?lower[1]:du<dl?upper[1]:Math.min(lower[1],upper[1]);}
  return lower?.[1]??upper?.[1];
@@ -94,7 +103,8 @@ function couplingNote(r){
  const factors=r.positions?.destination?"CM origen: "+fmt(r.positions.origin.vals.CM)+"; CM destino: "+fmt(r.positions.destination.vals.CM):"CM: "+fmt(r.vals.CM);
  return "Agarre regular. "+factors+" (tabla 2.15 del manual).";
 }
-function calculationNote(r){return[durationNote(r),frequencyNote(r),couplingNote(r),positionNote(r)].filter(Boolean).join(" ")}
+function geometryNote(r){return r.problems?"":"Criterio geométrico provisional: VM, HM y DM conservan los puntos tabulados del Excel LI; los valores intermedios se calculan con las ecuaciones del manual. Permanecen pendientes las discrepancias en D=170 cm y en los límites V=175, H=63 y D=175 cm.";}
+function calculationNote(r){return[geometryNote(r),durationNote(r),frequencyNote(r),couplingNote(r),positionNote(r)].filter(Boolean).join(" ")}
 function updateDurationFeedback(x){
  const out=$("durationFeedback");if(!out)return;
  if(!x){out.textContent="Seleccione una tarea para comprobar la duración.";return}
@@ -103,8 +113,17 @@ function updateDurationFeedback(x){
 }
 function calc(x){
  const problems=[];
- for(const k of ["peso","horizontal","vertical","desplazamiento","asimetria","agarre","unaMano","dosPersonas","extension","grupoDuracion"])if(!x[k])problems.push("Falta: "+k);
+ for(const k of ["peso","horizontal","vertical","desplazamiento","asimetria","agarre","unaMano","dosPersonas","extension","grupoDuracion"])if(x[k]===undefined||x[k]===null||String(x[k]).trim()==="")problems.push("Falta: "+k);
  const duration=durationData(x);problems.push(...duration.problems);
+ if(Number.isFinite(Number(x.horizontal))&&Number(x.horizontal)<20)problems.push("Distancia horizontal en origen inferior al mínimo de 20 cm del manual.");
+ if(x.controlDestino==="si"){
+  const present=v=>v!==undefined&&v!==null&&String(v).trim()!=="";
+  if(present(x.horizontalDestino)&&Number.isFinite(Number(x.horizontalDestino))&&Number(x.horizontalDestino)<20)problems.push("Distancia horizontal en destino inferior al mínimo de 20 cm del manual.");
+  if([x.vertical,x.verticalDestino,x.desplazamiento].every(v=>present(v)&&Number.isFinite(Number(v))&&Number(v)>=0)){
+   const expected=Math.abs(Number(x.verticalDestino)-Number(x.vertical));
+   if(Math.abs(Number(x.desplazamiento)-expected)>1e-9)problems.push("Desplazamiento incoherente: D debe coincidir con |V destino − V origen| = "+fmt(expected)+" cm. Introduzca el recorrido real; el mínimo de 25 cm se aplica solo al factor DM.");
+  }
+ }
  if(problems.length)return{problems};
  const vals={VM:multiplier("vertical",x.vertical),HM:multiplier("horizontal",x.horizontal),DM:multiplier("desplazamiento",x.desplazamiento),AM:multiplier("asimetria",x.asimetria)};
  for(const [k,v] of Object.entries(vals))if(v===undefined)problems.push("Valor no contemplado en la tabla: "+k);else if(v===0)problems.push("Condición crítica: "+k);
