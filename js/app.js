@@ -5,10 +5,8 @@ let p={application:"MMC Analyzer",version:2,module:"simple",meta:{},tasks:[],sim
 const tables={vertical:{0:.77,25:.85,50:.93,75:1,100:.93,125:.85,150:.78},horizontal:{25:1,30:.83,40:.63,50:.5,55:.45,60:.42},desplazamiento:{25:1,30:.97,40:.93,50:.91,70:.88,100:.87,170:.86},asimetria:{0:1,30:.9,60:.81,90:.71,120:.52,135:.57}};
 const freq=[0,.1,.2,.5,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],FM={larga:[1,.85,.85,.81,.75,.65,.55,.45,.35,.27,.22,.18,0,0,0,0,0,0,0],media:[1,.95,.95,.92,.88,.84,.79,.72,.6,.5,.42,.35,.3,.26,0,0,0,0,0],corta:[1,1,1,.97,.94,.91,.88,.84,.8,.75,.7,.6,.52,.45,.41,.37,0,0,0]};
 const refs=[["Hombres 20–45",25],["Hombres fuera 20–45",20],["Mujeres 20–45",20],["Mujeres fuera 20–45",15]];
-// Manual adjunto: tabla 2.16 (p. 64) y ejemplo de interpolación (p. 77).
-// Columnas para V>=75 cm verificadas en el Excel CLI, 4.Factores, BB:BD;
-// las de V<75 cm coinciden con BE:BG y la tabla del Excel LI simple.
-const FMHigh={corta:[...FM.corta.slice(0,16),.34,.31,.28],media:[...FM.media.slice(0,14),.23,.21,0,0,0],larga:[...FM.larga.slice(0,12),.15,.13,0,0,0,0,0]};
+// Fuente exclusiva de FM: tabla del Excel LI simple, filas 37–56.
+// Interpolación entre filas numéricas según el criterio acordado; sin tabla adicional CLI.
 function frequencyMultiplier(input,category,height){
  if((typeof input!=="number"&&typeof input!=="string")||String(input).trim()==="")return undefined;
  const value=Number(input),vertical=Number(height);
@@ -18,18 +16,19 @@ function frequencyMultiplier(input,category,height){
  // No se interpola a través del salto de la baja frecuencia.
  if(value<.1)return 1;
  if(value<=.2)return FM[category][2];
- const column=vertical>=75?FMHigh[category]:FM[category];
+ const column=FM[category];
  const upper=freq.findIndex(f=>f>=value);
  if(freq[upper]===value)return column[upper];
  const lower=upper-1,ratio=(value-freq[lower])/(freq[upper]-freq[lower]);
- // Conservar precisión durante el cálculo, como las celdas intermedias del Excel CLI.
+ // Conservar la precisión y redondear únicamente en la presentación.
  return column[lower]+ratio*(column[upper]-column[lower]);
 }
 function frequencyNote(r){
  if(!r.frequency||r.problems)return "";
  const factor=v=>v.toLocaleString("es-ES",{maximumFractionDigits:6});
  const detail=r.positions?.destination?"FM origen: "+factor(r.positions.origin.vals.FM)+"; FM destino: "+factor(r.positions.destination.vals.FM):"FM: "+factor(r.vals.FM);
- return "Frecuencia: "+factor(r.frequency.value)+" lev/min. "+detail+" ("+r.frequency.method+").";
+ return "Frecuencia: "+factor(r.frequency.value)+" lev/min. "+detail+" ("+r.frequency.method+"). Fuente exclusiva: tabla del Excel LI, rotulada «área inferior a 75 cm».";
+
 }
 const fmt=v=>Number.isFinite(v)?v.toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2}):"—";
 const safe=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
