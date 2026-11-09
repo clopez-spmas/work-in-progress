@@ -44,22 +44,18 @@ function multiplier(key,val){
  const n=Number(val);if(!Number.isFinite(n)||n<0||!tables[key])return undefined;
  if(key==="horizontal"&&n<20)return undefined;
  const entries=Object.entries(tables[key]).map(([k,v])=>[Number(k),v]).sort((a,b)=>a[0]-b[0]);
+ // Conservar los mínimos de aplicación ya existentes.
  if(key==="desplazamiento"&&n<=25)return 1;
+ if(key==="horizontal"&&n<=25)return 1;
  const exact=entries.find(([k])=>k===n);if(exact)return exact[1];
  const maxima={vertical:175,horizontal:63,desplazamiento:175,asimetria:135};
  if(n>maxima[key])return 0;
- // Criterio provisional: conservar los puntos Excel y los límites exactos vigentes.
- // V=175, H=63 y D=175 siguen pendientes de resolver entre referencias.
- if(n===maxima[key]&&key!=="asimetria")return entries.at(-1)[1];
- // Manual, pp. 51–55: ecuaciones para valores no tabulados, sin redondeo intermedio.
- if(key==="vertical")return 1-.003*Math.abs(n-75);
- if(key==="horizontal")return n<=25?1:25/n;
- if(key==="desplazamiento")return .82+4.5/n;
  const lower=entries.filter(([k])=>k<n).at(-1),upper=entries.find(([k])=>k>n);
- // Asimetría conserva el criterio Excel previo; fuera del alcance de esta corrección.
- // En un empate se selecciona el coeficiente menor, y se advierte en el informe metodológico.
- if(lower&&upper){const dl=n-lower[0],du=upper[0]-n;return dl<du?lower[1]:du<dl?upper[1]:Math.min(lower[1],upper[1]);}
- return lower?.[1]??upper?.[1];
+ // Interpolación lineal entre dos puntos numéricos del Excel LI.
+ // Las columnas ">175" y ">63" son condiciones críticas, no puntos de interpolación.
+ // Sin ambos extremos, no extrapolar ni prolongar el último coeficiente.
+ if(!lower||!upper)return undefined;
+ return lower[1]+(n-lower[0])/(upper[0]-lower[0])*(upper[1]-lower[1]);
 }
 // Fuente: manual adjunto, tabla 2.4 y ejemplo de duración (páginas 36-37).
 // Se valida la categoría elegida; FM y EM mantienen las tablas del Excel ERGOepm.
@@ -103,7 +99,7 @@ function couplingNote(r){
  const factors=r.positions?.destination?"CM origen: "+fmt(r.positions.origin.vals.CM)+"; CM destino: "+fmt(r.positions.destination.vals.CM):"CM: "+fmt(r.vals.CM);
  return "Agarre regular. "+factors+" (tabla 2.15 del manual).";
 }
-function geometryNote(r){return r.problems?"":"Criterio geométrico provisional: VM, HM y DM conservan los puntos tabulados del Excel LI; los valores intermedios se calculan con las ecuaciones del manual. Permanecen pendientes las discrepancias en D=170 cm y en los límites V=175, H=63 y D=175 cm.";}
+function geometryNote(r){return r.problems?"":"VM, HM, DM y AM: coeficientes tabulados del Excel LI e interpolación lineal entre puntos numéricos. Sin dos extremos tabulados no se extrapola. Se mantienen los mínimos de aplicación de HM y DM.";}
 function calculationNote(r){return[geometryNote(r),durationNote(r),frequencyNote(r),couplingNote(r),positionNote(r)].filter(Boolean).join(" ")}
 function updateDurationFeedback(x){
  const out=$("durationFeedback");if(!out)return;
@@ -126,7 +122,7 @@ function calc(x){
  }
  if(problems.length)return{problems};
  const vals={VM:multiplier("vertical",x.vertical),HM:multiplier("horizontal",x.horizontal),DM:multiplier("desplazamiento",x.desplazamiento),AM:multiplier("asimetria",x.asimetria)};
- for(const [k,v] of Object.entries(vals))if(v===undefined)problems.push("Valor no contemplado en la tabla: "+k);else if(v===0)problems.push("Condición crítica: "+k);
+ for(const [k,v] of Object.entries(vals))if(v===undefined)problems.push("Valor inválido o sin dos puntos tabulados para interpolar: "+k);else if(v===0)problems.push("Condición crítica: "+k);
  vals.FM=frequencyMultiplier(x.frecuencia,x.grupoDuracion,x.vertical);
  if(vals.FM===undefined)problems.push("No se puede determinar FM: revise frecuencia, altura y categoría de duración.");else if(vals.FM===0)problems.push("Frecuencia crítica en origen");
  vals.CM=couplingMultiplier(x.agarre,x.vertical);if(vals.CM===undefined)problems.push("No se puede determinar CM: revise el tipo de agarre y la altura de origen.");
@@ -138,7 +134,7 @@ function calc(x){
    const input=x[field];
    if(input===undefined||input===null||String(input).trim()===""){problems.push("Falta dato de destino: "+field);continue}
    const value=multiplier(table,input);
-   if(value===undefined)problems.push("Valor de destino no válido: "+field);
+   if(value===undefined)problems.push("Valor de destino inválido o sin dos puntos tabulados para interpolar: "+field);
    else if(value===0)problems.push("Condición crítica en destino: "+field);
    destinationVals[factor]=value;
   }
