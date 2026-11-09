@@ -86,20 +86,16 @@ function durationNote(r){
  const d=r.duration;
  return "Duración "+d.category+": "+fmt(d.minutes)+" min."+(d.recoveryMinutes===null?"":" Recuperación posterior: "+fmt(d.recoveryMinutes)+" min.")+(d.category==="larga"?" Se presuponen las pausas habituales.":"");
 }
-// El Excel LI simple sólo contiene Bueno=1 y Malo=0,9.
-// Para Regular, usar la tabla 2.15 (p. 63) del manual adjunto:
-// CM=0,95 si V<75 cm; CM=1 si V>=75 cm, en cada posición por separado.
-// No trasladar aquí el 0,95 fijo de la fórmula V15 del Excel CLI.
+// Fuente exclusiva: Excel LI, Bueno=1 y Malo=0,9.
 function couplingMultiplier(quality,height){
- if(!["bueno","regular","malo"].includes(quality))return undefined;
+ if(!["bueno","malo"].includes(quality))return undefined;
  if((typeof height!=="number"&&typeof height!=="string")||String(height).trim()==="")return undefined;
  const vertical=Number(height);if(!Number.isFinite(vertical)||vertical<0)return undefined;
- return quality==="bueno"?1:quality==="malo"?.9:vertical<75?.95:1;
+ return quality==="bueno"?1:.9;
 }
 function couplingNote(r){
- if(r.coupling!=="regular"||r.problems)return "";
- const factors=r.positions?.destination?"CM origen: "+fmt(r.positions.origin.vals.CM)+"; CM destino: "+fmt(r.positions.destination.vals.CM):"CM: "+fmt(r.vals.CM);
- return "Agarre regular. "+factors+" (tabla 2.15 del manual).";
+ if(r.problems||!["bueno","malo"].includes(r.coupling))return "";
+ return "Agarre "+r.coupling+". CM = "+fmt(r.vals.CM)+" (Excel LI).";
 }
 function geometryNote(r){return r.problems?"":"VM, HM, DM y AM: coeficientes tabulados del Excel LI e interpolación lineal entre puntos numéricos. Extremos acordados para interpolar: VM=0 a V=175 cm, HM=0 a H=63 cm y DM=0 a D=175 cm; por encima de cada límite el factor es cero. Sin dos extremos no se extrapola. Se mantienen los mínimos de aplicación de HM y DM.";}
 function calculationNote(r){return[geometryNote(r),durationNote(r),frequencyNote(r),couplingNote(r),positionNote(r)].filter(Boolean).join(" ")}
@@ -113,6 +109,7 @@ function calc(x){
  const problems=[];
  for(const k of ["peso","horizontal","vertical","desplazamiento","asimetria","agarre","unaMano","dosPersonas","extension","grupoDuracion"])if(x[k]===undefined||x[k]===null||String(x[k]).trim()==="")problems.push("Falta: "+k);
  const duration=durationData(x);problems.push(...duration.problems);
+ if(x.agarre!==undefined&&x.agarre!==null&&String(x.agarre).trim()!==""&&!["bueno","malo"].includes(x.agarre))problems.push("Agarre no admitido en el Excel LI: seleccione Bueno o Malo.");
  if(Number.isFinite(Number(x.horizontal))&&Number(x.horizontal)<20)problems.push("Distancia horizontal en origen inferior al mínimo de 20 cm del manual.");
  if(x.controlDestino==="si"){
   const present=v=>v!==undefined&&v!==null&&String(v).trim()!=="";
@@ -225,7 +222,7 @@ function results(){
 function detail(t,r){const d=$("detail");d.replaceChildren();const h=document.createElement("h2");h.textContent="Detalle: "+(t.name||"Tarea");d.append(h);if(r.problems){const v=document.createElement("p");v.textContent=r.problems.join("; ");d.append(v);return}const a=document.createElement("p");a.textContent="Peso total "+fmt(r.weightTotal)+" kg · Peso por persona "+fmt(r.weightPerPerson)+" kg";d.append(a);const b=document.createElement("p");b.textContent=Object.entries(r.vals).map(([k,v])=>k+"="+v).join(" | ");d.append(b);r.indices.forEach(i=>{const q=document.createElement("p");q.textContent=i.group+": peso recomendado "+fmt(i.recommended)+" kg · índice "+fmt(i.index);d.append(q)})}
 async function save(as){try{if(!as&&handle){const w=await handle.createWritable();await w.write(JSON.stringify(p,null,2));await w.close()}else if(window.showSaveFilePicker){handle=await window.showSaveFilePicker({suggestedName:name,types:[{description:"JSON",accept:{"application/json":[".json"]}}]});name=handle.name;const w=await handle.createWritable();await w.write(JSON.stringify(p,null,2));await w.close()}else{let n=prompt("Nombre del archivo",name);if(!n)return;name=n.endsWith(".json")?n:n+".json";const u=URL.createObjectURL(new Blob([JSON.stringify(p,null,2)],{type:"application/json"})),a=document.createElement("a");a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1500)}dirty=false;$("status").textContent="Guardado solicitado"}catch(e){if(e.name!=="AbortError")$("status").textContent=e.message}}
 async function load(f){if(!f)return;try{const q=JSON.parse(await f.text());if(q.application!=="MMC Analyzer"||q.module!=="simple"||!Array.isArray(q.tasks)||q.tasks.length>50)throw Error("Proyecto incompatible");if(dirty&&!confirm("¿Descartar cambios?"))return;p={application:"MMC Analyzer",module:"simple",version:2,meta:q.meta||{},tasks:q.tasks.map(t=>({id:String(t.id),name:String(t.name||""),inputs:{...blank(),...t.inputs}})),simulations:q.simulations||{}};metas.forEach(k=>document.querySelector('[data-meta="'+k+'"]').value=p.meta[k]||"");dirty=false;handle=null;name=f.name;render();nav(1);$("status").textContent="Proyecto cargado"}catch(e){$("status").textContent=e.message}}
-function sim(){const t=p.tasks.find(t=>t.id===$("simTask").value);if(!t)return;const current=p.simulations[t.id]||{...t.inputs};const area=$("simInputs");area.replaceChildren();for(const [k,v] of Object.entries(t.inputs)){const lab=document.createElement("label");lab.textContent=({duracion:"Duración del período evaluado (min)",recuperacion:"Recuperación posterior (min)",grupoDuracion:"Categoría: corta, media o larga"}[k]||k);const inp=document.createElement("input");inp.value=current[k]??v;inp.oninput=()=>{current[k]=inp.value;p.simulations[t.id]=current;changed();showSim(t,current)};lab.append(inp);area.append(lab)}showSim(t,current)}
+function sim(){const t=p.tasks.find(t=>t.id===$("simTask").value);if(!t)return;const current=p.simulations[t.id]||{...t.inputs};const area=$("simInputs");area.replaceChildren();for(const [k,v] of Object.entries(t.inputs)){const lab=document.createElement("label");lab.textContent=({duracion:"Duración del período evaluado (min)",recuperacion:"Recuperación posterior (min)",grupoDuracion:"Categoría: corta, media o larga"}[k]||k);const inp=document.createElement(k==="agarre"?"select":"input");if(k==="agarre"){for(const [value,label] of [["","Sin indicar"],["bueno","Bueno"],["malo","Malo"]]){const option=document.createElement("option");option.value=value;option.textContent=label;inp.append(option)}}inp.value=current[k]??v;inp.oninput=()=>{current[k]=inp.value;p.simulations[t.id]=current;changed();showSim(t,current)};lab.append(inp);area.append(lab)}showSim(t,current)}
 function showSim(t,x){const original=calc(t.inputs),mod=calc(x);$("simResults").textContent=original.indices&&mod.indices?original.indices.map((v,i)=>v.group+": "+fmt(v.index)+" → "+fmt(mod.indices[i].index)).join(" | "):"Simulación pendiente. "+(original.problems?"Datos originales: "+original.problems.join("; ")+". ":"")+(mod.problems?"Datos simulados: "+mod.problems.join("; "):"")}
 function copy(type){let rows=[["Tarea","25 kg","20 kg H","20 kg M","15 kg"]];for(const t of p.tasks){const r=calc(t.inputs);rows.push([t.name,...(r.indices?r.indices.map(i=>fmt(i.index)):["—","—","—","—"])])}if(type==="intermediate")rows=[["Tarea","Factores"],...p.tasks.map(t=>{const r=calc(t.inputs);return[t.name,factorText(r)]})];if(type==="sim")rows=[["Tarea","Simulación"],...p.tasks.map(t=>[t.name,p.simulations[t.id]?JSON.stringify(p.simulations[t.id]):"Sin simulación"])];const markup='<table style="font-family:Arial;font-size:10pt;border-collapse:collapse">'+rows.map(row=>"<tr>"+row.map(cell=>'<td style="border:1px solid #ccc;padding:4px">'+safe(cell)+"</td>").join("")+"</tr>").join("")+"</table>";const plain=rows.map(r=>r.join("\t")).join("\n");if(navigator.clipboard?.write&&window.ClipboardItem){navigator.clipboard.write([new ClipboardItem({"text/html":new Blob([markup],{type:"text/html"}),"text/plain":new Blob([plain],{type:"text/plain"})})]).then(()=>$("status").textContent="Tabla copiada").catch(()=>$("status").textContent="No se pudo copiar")}else navigator.clipboard?.writeText(plain).then(()=>$("status").textContent="Tabla copiada")}
 $("enter").onclick=()=>screen("methods");$("backWelcome").onclick=()=>screen("welcome");document.querySelectorAll("[data-method]").forEach(b=>b.onclick=()=>b.dataset.method==="simple"?(screen("simple"),nav(1)):$("methodNote").textContent="Módulo en preparación");
