@@ -2,7 +2,7 @@
 // Manual aportado, tabla 2.4 y ejemplo de las páginas impresas 36–37.
 // Los descansos insuficientes incluidos entre bloques forman parte del período acumulado.
 (()=>{
-const blank=()=>({start:"",end:"",overnight:false,postRecovery:"",blocks:[]});
+const blank=()=>({start:"",end:"",overnight:false,blocks:[]});
 const clock=value=>typeof value==="string"&&/^\d{2}:\d{2}$/.test(value)&&Number(value.slice(0,2))<24&&Number(value.slice(3))<60?Number(value.slice(0,2))*60+Number(value.slice(3)):NaN;
 const category=(work,rest)=>work<=60&&rest>=work?"corta":work<=120&&rest>=.3*work?"media":null;
 function analyze(schedule){
@@ -12,9 +12,7 @@ function analyze(schedule){
  const end=endClock+(overnight?1440:0);
  if(!Number.isFinite(start)||!Number.isFinite(end))problems.push("Indique inicio y fin de la jornada.");
  else if(end<=start||end-start>1440)problems.push("La jornada debe durar más de cero y como máximo 24 horas. Revise el fin al día siguiente.");
- const supplied=s.postRecovery!==undefined&&s.postRecovery!==null&&String(s.postRecovery).trim()!=="";
- const post=supplied&&(typeof s.postRecovery==="string"||typeof s.postRecovery==="number")?Number(s.postRecovery):NaN;
- if(supplied&&(!Number.isFinite(post)||post<0||post>1440))problems.push("La recuperación posterior a la jornada debe estar entre 0 y 1440 minutos.");
+ // Solo se consideran tramos dentro de la jornada; se ignora postRecovery de estudios antiguos.
  if(!Array.isArray(s.blocks)||!s.blocks.length)problems.push("Añada los tramos de actividad que cubren la jornada completa.");
  if(problems.length)return{problems};
  if(s.blocks.length>200)return{problems:["El horario admite como máximo 200 tramos por tarea."]};
@@ -47,12 +45,11 @@ function analyze(schedule){
    const workEnd=segments[j].start;let k=j;
    while(k<segments.length&&segments[k].recovery)k++;
    const finishesShift=k===segments.length;
-   const rest=segments[k-1].end-workEnd+(finishesShift&&supplied?post:0);
+   const rest=segments[k-1].end-workEnd;
    const cat=category(workEnd-groupStart,rest);
    if(cat){emit(groupStart,workEnd,rest,cat);i=segments.findIndex((b,n)=>n>=k&&b.type==="mmc");closed=true;break}
    if(finishesShift){
-    if(workEnd-groupStart<=120&&!supplied)problems.push("La recuperación al final de jornada es insuficiente para corta o media. Indique la recuperación posterior conocida (0 si no existe); no se presupone descanso fuera del horario.");
-    else emit(groupStart,workEnd,rest,"larga");
+    emit(groupStart,workEnd,rest,"larga");
     i=-1;closed=true;break;
    }
    // La pausa no permite separar los bloques: el siguiente período conserva groupStart.
@@ -60,8 +57,7 @@ function analyze(schedule){
   }
   if(!closed){
    const work=end-groupStart;
-   if(work<=120&&!supplied)problems.push("Indique la recuperación posterior a la jornada en minutos (0 si no existe) para determinar la duración.");
-   else emit(groupStart,end,supplied?post:0,category(work,supplied?post:0)||"larga");
+   emit(groupStart,end,0,"larga");
    i=-1;
   }
  }
