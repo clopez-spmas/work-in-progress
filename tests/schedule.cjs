@@ -28,7 +28,7 @@ const twelve=expect([[720,'mmc']],'larga',720,0,{postRecovery:'0'});assert.equal
 assert.ok(S.analyze(schedule([[721,'mmc']],{postRecovery:'0'})).problems.some(x=>x.includes('12 horas')));checks++;
 for(const mutate of [s=>s.blocks[0].start='08:01',s=>s.blocks[1].start='08:40',s=>s.blocks[1].end='09:29',s=>s.blocks[0].type='',s=>{s.blocks[1].type='otra';s.blocks[1].recovery=''},s=>s.blocks[0].start='25:00',s=>s.overnight='true']){const s=schedule([[45,'mmc'],[45,'pausa']]);mutate(s);if(s.overnight==='true'){s.end='07:00'}assert.ok(S.analyze(s).problems.length,JSON.stringify(s));checks++}
 const shuffled=schedule([[45,'mmc'],[45,'pausa']]);shuffled.blocks.reverse();assert.equal(S.analyze(shuffled).category,'corta');checks++;
-const base={peso:'15',horizontal:'25',vertical:'50',desplazamiento:'25',asimetria:'0',frecuencia:'3',agarre:'bueno',unaMano:'no',dosPersonas:'no',extension:'12',grupoDuracion:'larga',duracion:'999',recuperacion:'0',controlDestino:'no',horario:schedule([[45,'mmc'],[45,'pausa']])};
+const base={peso:'15',horizontal:'25',vertical:'50',verticalDestino:'75',desplazamiento:'25',asimetria:'0',frecuencia:'3',agarre:'bueno',unaMano:'no',dosPersonas:'no',extension:'12',grupoDuracion:'larga',duracion:'999',recuperacion:'0',controlDestino:'no',horario:schedule([[45,'mmc'],[45,'pausa']])};
 const result=app.calc(base);assert.ok(result.indices,JSON.stringify(result.problems));assert.equal(result.vals.FM,.88);assert.equal(result.vals.EM,1);assert.equal(result.duration.category,'corta');assert.ok(Math.abs(result.indices[0].index-15/(25*.93*.88))<1e-12);checks++;
 const long=app.calc({...base,grupoDuracion:'corta',horario:schedule([[50,'mmc'],[10,'pausa'],[50,'mmc'],[10,'pausa'],[50,'mmc'],[70,'pausa']])});assert.equal(long.vals.FM,.55);assert.equal(long.duration.category,'larga');checks++;
 const extended=app.calc({...base,horario:schedule([[540,'mmc'],[60,'pausa']])});assert.equal(extended.vals.EM,.97);checks++;
@@ -36,3 +36,4 @@ const invalid=app.calc({...base,horario:S.blank()});assert.equal(invalid.indices
 const legacy=app.calc({...base,horario:undefined});assert.equal(legacy.indices,undefined);assert.match(legacy.problems.join(' '),/Complete el horario/);checks++;
 const persisted=JSON.parse(JSON.stringify(base));assert.equal(app.calc(persisted).duration.category,'corta');checks++;
 console.log(JSON.stringify({ok:true,checks,manualExample:{work:manual.minutes,recovery:manual.recoveryMinutes,totalMMC:manual.totalMMC,category:manual.category},overnight:true,missingDataBlocked:true,autoFM:true,autoExtension:true}));
+
