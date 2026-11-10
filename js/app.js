@@ -290,7 +290,6 @@ $("enter").onclick=()=>screen("methods");$("backWelcome").onclick=()=>screen("we
 $("home").onclick=()=>{if(dirty&&!confirm("Hay cambios sin guardar. ¿Salir?"))return;screen("welcome")};$("prev").onclick=()=>nav(page-1);$("next").onclick=()=>nav(page+1);
 $("addTask").onclick=()=>{if(p.tasks.length>=50)return;const t=task();p.tasks.push(t);sel=t.id;changed();render()};$("taskSelect").onchange=e=>{sel=e.target.value;inputs()};
 $("scheduleTask").onchange=e=>{sel=e.target.value;renderSchedule()};
-$("editTaskSchedule").onclick=()=>nav(2);
 for(const [id,key] of [["shiftStart","start"],["shiftEnd","end"]])$(id).oninput=()=>{const t=selectedTask();if(t){t.inputs.horario[key]=$(id).value;scheduleChanged()}};
 $("shiftOvernight").onchange=()=>{const t=selectedTask();if(t){t.inputs.horario.overnight=$("shiftOvernight").checked;scheduleChanged()}};
 $("addScheduleBlock").onclick=()=>{const t=selectedTask();if(!t)return;const s=t.inputs.horario;if(s.blocks.length>=200)return;s.blocks.push({id:crypto.randomUUID(),start:s.blocks.at(-1)?.end||s.start,end:s.end,type:"",recovery:"",notes:""});scheduleChanged();renderSchedule()};
