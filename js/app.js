@@ -1,7 +1,7 @@
 "use strict";
 (()=> {
 const $=id=>document.getElementById(id), fields=["peso","horizontal","vertical","desplazamiento","asimetria","frecuencia","duracion","recuperacion","agarre","dosPersonas","unaMano","extension","grupoDuracion","controlDestino","verticalDestino","horizontalDestino","asimetriaDestino"],metas=["empresa","puesto","seccion","fecha"];
-let p={application:"MMC Analyzer",version:3,module:"simple",meta:{},tasks:[],simulations:{}},sel="",page=1,dirty=false,handle=null,name="MMC-Simple.json";
+let p={application:"MMC Analyzer",version:4,module:"simple",meta:{},tasks:[],simulations:{}},sel="",page=1,dirty=false,handle=null,name="MMC-Simple.json";
 const tables={vertical:{0:.77,25:.85,50:.93,75:1,100:.93,125:.85,150:.78},horizontal:{25:1,30:.83,40:.63,50:.5,55:.45,60:.42},desplazamiento:{25:1,30:.97,40:.93,50:.91,70:.88,100:.87,170:.86},asimetria:{0:1,30:.9,60:.81,90:.71,120:.52,135:.57}};
 const freq=[0,.1,.2,.5,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],FM={larga:[1,.85,.85,.81,.75,.65,.55,.45,.35,.27,.22,.18,0,0,0,0,0,0,0],media:[1,.95,.95,.92,.88,.84,.79,.72,.6,.5,.42,.35,.3,.26,0,0,0,0,0],corta:[1,1,1,.97,.94,.91,.88,.84,.8,.75,.7,.6,.52,.45,.41,.37,0,0,0]};
 const refs=[["Hombres 20–45",25],["Hombres fuera 20–45",20],["Mujeres 20–45",20],["Mujeres fuera 20–45",15]];
@@ -38,8 +38,15 @@ const temporalFields=["duracion","recuperacion","grupoDuracion","extension"];
 function nav(n){page=Math.min(5,Math.max(1,n));for(let i=1;i<=5;i++)$("page"+i).hidden=i!==page;$("pageNum").textContent=page;$("prev").disabled=page===1;$("next").disabled=page===5;if(page===2)renderSchedule();if(page===3)inputs();if(page===4)results();if(page===5){selector();sim()}$("simulation").hidden=page!==5||!p.tasks.length;scrollTo(0,0)}
 function selector(){if(!p.tasks.some(t=>t.id===sel))sel=p.tasks[0]?.id||"";for(const id of ["taskSelect","scheduleTask","simTask"]){const e=$(id),previous=e.value;e.replaceChildren();p.tasks.forEach((t,i)=>{const o=document.createElement("option");o.value=t.id;o.textContent=(i+1)+". "+(t.name||"Sin nombre");e.append(o)});e.value=id==="simTask"&&p.tasks.some(t=>t.id===previous)?previous:sel}}
 function render(){const list=$("taskList");list.replaceChildren();p.tasks.forEach((t,i)=>{const row=document.createElement("div");row.className="task";const label=document.createElement("span");label.textContent="Tarea "+(i+1);const inp=document.createElement("input");inp.value=t.name;inp.maxLength=150;inp.placeholder="Nombre";inp.oninput=()=>{t.name=inp.value;selector();changed()};const schedule=document.createElement("button");schedule.className="secondary";schedule.textContent="Horario";schedule.onclick=()=>{sel=t.id;nav(2)};const edit=document.createElement("button");edit.className="secondary";edit.textContent="Datos";edit.onclick=()=>{sel=t.id;nav(3)};const del=document.createElement("button");del.className="secondary";del.textContent="Eliminar";del.onclick=()=>{if(confirm("¿Eliminar tarea?")){p.tasks.splice(i,1);delete p.simulations[t.id];changed();render()}};row.append(label,inp,schedule,edit,del);list.append(row)});$("taskCount").textContent=p.tasks.length+" / 50";$("addTask").disabled=p.tasks.length>=50;selector()}
-function syncTemporal(x){if(x?.horario&&typeof x.horario==="object")delete x.horario.postRecovery;const d=durationData(x),valid=!d.problems.length;x.duracion=valid?String(d.minutes):"";x.recuperacion=valid?String(d.recoveryMinutes):"";x.grupoDuracion=valid?d.category:"";x.extension=valid?String(d.extension):"";return d}
-function inputs(){selector();const t=p.tasks.find(t=>t.id===sel);if(t)syncTemporal(t.inputs);document.querySelectorAll("[data-field]").forEach(e=>{const derived=temporalFields.includes(e.dataset.field);e.disabled=!t||(derived&&e.tagName==="SELECT");e.readOnly=derived;if(derived)e.classList.add("automatic-field");e.value=t?.inputs?.[e.dataset.field]??""});$("destination").hidden=!t||t.inputs.controlDestino!=="si";updateDurationFeedback(t?.inputs)}
+function verticalDistance(x){
+ const problems=[];for(const [key,label] of [["vertical","inicial"],["verticalDestino","final"]]){const value=x?.[key];if((typeof value!=="string"&&typeof value!=="number")||String(value).trim()===""||!Number.isFinite(Number(value))||Number(value)<0)problems.push("Indique una altura vertical "+label+" válida (cm), mayor o igual que cero.")}
+ return{problems,value:problems.length?null:Math.abs(Number(x.verticalDestino)-Number(x.vertical))};
+}
+function syncGeometry(x){const d=verticalDistance(x);x.desplazamiento=d.value===null?"":String(d.value);return d}
+function geometryFeedback(x){const d=verticalDistance(x);return d.value===null?d.problems.join(" "):"Desplazamiento vertical calculado: |altura final − altura inicial| = "+fmt(d.value)+" cm."}
+function updateGeometryFeedback(x){const out=$("geometryFeedback");if(out)out.textContent=x?geometryFeedback(x):"Seleccione una tarea para introducir las alturas inicial y final."}
+function syncTemporal(x){syncGeometry(x);if(x?.horario&&typeof x.horario==="object")delete x.horario.postRecovery;const d=durationData(x),valid=!d.problems.length;x.duracion=valid?String(d.minutes):"";x.recuperacion=valid?String(d.recoveryMinutes):"";x.grupoDuracion=valid?d.category:"";x.extension=valid?String(d.extension):"";return d}
+function inputs(){selector();const t=p.tasks.find(t=>t.id===sel);if(t)syncTemporal(t.inputs);document.querySelectorAll("[data-field]").forEach(e=>{const derived=temporalFields.includes(e.dataset.field);e.disabled=!t||(derived&&e.tagName==="SELECT");e.readOnly=derived;if(derived)e.classList.add("automatic-field");e.value=t?.inputs?.[e.dataset.field]??""});$("destination").hidden=!t||t.inputs.controlDestino!=="si";updateDurationFeedback(t?.inputs);updateGeometryFeedback(t?.inputs)}
 function selectedTask(){return p.tasks.find(t=>t.id===sel)}
 function scheduleClock(value){const n=((value%1440)+1440)%1440;return String(Math.floor(n/60)).padStart(2,"0")+":"+String(n%60).padStart(2,"0")+(value>=1440?" (+1 día)":"")}
 function scheduleChanged(){const t=selectedTask();if(!t)return;syncTemporal(t.inputs);changed();renderScheduleSummary();if(!$("simulation").hidden)sim()}
@@ -119,19 +126,16 @@ function updateDurationFeedback(x){
  out.textContent=duration.problems.length?duration.problems.join(" "):durationNote({duration});
 }
 function calc(x){
- const duration=durationData(x);x={...x,grupoDuracion:duration.category,extension:duration.extension===undefined?"":String(duration.extension)};
- const problems=[];
- for(const k of ["peso","horizontal","vertical","desplazamiento","asimetria","agarre","unaMano","dosPersonas"])if(x[k]===undefined||x[k]===null||String(x[k]).trim()==="")problems.push("Falta: "+k);
+ const distance=verticalDistance(x),duration=durationData(x);x={...x,desplazamiento:distance.value===null?"":String(distance.value),grupoDuracion:duration.category,extension:duration.extension===undefined?"":String(duration.extension)};
+ const problems=[...distance.problems];
+ for(const k of ["peso","horizontal","asimetria","agarre","unaMano","dosPersonas"])if(x[k]===undefined||x[k]===null||String(x[k]).trim()==="")problems.push("Falta: "+k);
  problems.push(...duration.problems);
  if(x.agarre!==undefined&&x.agarre!==null&&String(x.agarre).trim()!==""&&!["bueno","malo"].includes(x.agarre))problems.push("Agarre no admitido en el Excel LI: seleccione Bueno o Malo.");
  if(Number.isFinite(Number(x.horizontal))&&Number(x.horizontal)<20)problems.push("Distancia horizontal en origen inferior al mínimo de 20 cm del manual.");
  if(x.controlDestino==="si"){
   const present=v=>v!==undefined&&v!==null&&String(v).trim()!=="";
   if(present(x.horizontalDestino)&&Number.isFinite(Number(x.horizontalDestino))&&Number(x.horizontalDestino)<20)problems.push("Distancia horizontal en destino inferior al mínimo de 20 cm del manual.");
-  if([x.vertical,x.verticalDestino,x.desplazamiento].every(v=>present(v)&&Number.isFinite(Number(v))&&Number(v)>=0)){
-   const expected=Math.abs(Number(x.verticalDestino)-Number(x.vertical));
-   if(Math.abs(Number(x.desplazamiento)-expected)>1e-9)problems.push("Desplazamiento incoherente: D debe coincidir con |V destino − V origen| = "+fmt(expected)+" cm. Introduzca el recorrido real; el mínimo de 25 cm se aplica solo al factor DM.");
-  }
+
  }
  if(problems.length)return{problems};
  const vals={VM:multiplier("vertical",x.vertical),HM:multiplier("horizontal",x.horizontal),DM:multiplier("desplazamiento",x.desplazamiento),AM:multiplier("asimetria",x.asimetria)};
@@ -170,7 +174,7 @@ function calc(x){
  const governingPosition=destination&&destination.product<origin.product?"destination":"origin";
  const selected=governingPosition==="destination"?destination:origin;
  const frequencyValue=Number(x.frecuencia),frequency={value:frequencyValue,method:frequencyValue<=.2?"tramo de baja frecuencia del Excel LI":freq.includes(frequencyValue)?"valor tabulado":"interpolación entre filas"};
- return{vals:selected.vals,weightTotal:w,weightPerPerson:effective,indices:selected.indices,positions:{origin,destination},governingPosition,duration,frequency,coupling:x.agarre};
+ return{vals:selected.vals,weightTotal:w,weightPerPerson:effective,indices:selected.indices,positions:{origin,destination},governingPosition,duration,frequency,coupling:x.agarre,displacement:distance.value};
 }
 function positionNote(r){
  if(!r.positions?.destination)return "";
@@ -241,13 +245,13 @@ function results(){
 
 function detail(t,r){const d=$("detail");d.replaceChildren();const h=document.createElement("h2");h.textContent="Detalle: "+(t.name||"Tarea");d.append(h);if(r.problems){const v=document.createElement("p");v.textContent=r.problems.join("; ");d.append(v);return}const a=document.createElement("p");a.textContent="Peso total "+fmt(r.weightTotal)+" kg · Peso por persona "+fmt(r.weightPerPerson)+" kg";d.append(a);const b=document.createElement("p");b.textContent=Object.entries(r.vals).map(([k,v])=>k+"="+v).join(" | ");d.append(b);r.indices.forEach(i=>{const q=document.createElement("p");q.textContent=i.group+": peso recomendado "+fmt(i.recommended)+" kg · índice "+fmt(i.index);d.append(q)})}
 async function save(as){try{p.tasks.forEach(t=>syncTemporal(t.inputs));Object.values(p.simulations).forEach(x=>{if(x&&typeof x==="object"&&!Array.isArray(x))syncTemporal(x)});if(!as&&handle){const w=await handle.createWritable();await w.write(JSON.stringify(p,null,2));await w.close()}else if(window.showSaveFilePicker){handle=await window.showSaveFilePicker({suggestedName:name,types:[{description:"JSON",accept:{"application/json":[".json"]}}]});name=handle.name;const w=await handle.createWritable();await w.write(JSON.stringify(p,null,2));await w.close()}else{let n=prompt("Nombre del archivo",name);if(!n)return;name=n.endsWith(".json")?n:n+".json";const u=URL.createObjectURL(new Blob([JSON.stringify(p,null,2)],{type:"application/json"})),a=document.createElement("a");a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1500)}dirty=false;$("status").textContent="Guardado solicitado"}catch(e){if(e.name!=="AbortError")$("status").textContent=e.message}}
-async function load(f){if(!f)return;try{const q=JSON.parse(await f.text());if(q.application!=="MMC Analyzer"||q.module!=="simple"||!Array.isArray(q.tasks)||q.tasks.length>50)throw Error("Proyecto incompatible");if(dirty&&!confirm("¿Descartar cambios?"))return;p={application:"MMC Analyzer",module:"simple",version:3,meta:q.meta||{},tasks:q.tasks.map(t=>({id:String(t.id),name:String(t.name||""),inputs:{...blank(),...t.inputs,horario:t.inputs?.horario||MMCSchedule.blank()}})),simulations:q.simulations||{}};metas.forEach(k=>document.querySelector('[data-meta="'+k+'"]').value=p.meta[k]||"");p.tasks.forEach(t=>syncTemporal(t.inputs));Object.values(p.simulations).forEach(x=>{if(x&&typeof x==="object"&&!Array.isArray(x))syncTemporal(x)});dirty=false;handle=null;name=f.name;render();nav(1);$("status").textContent="Proyecto cargado"+(p.tasks.some(t=>durationData(t.inputs).problems.length)?". Complete o revise el horario de cada tarea.":"")}catch(e){$("status").textContent=e.message}}
-const simLabels={peso:"Peso (kg)",horizontal:"Distancia horizontal (cm)",vertical:"Altura vertical (cm)",desplazamiento:"Desplazamiento vertical (cm)",asimetria:"Asimetría (°)",frecuencia:"Frecuencia (levantamientos/min)",agarre:"Calidad del agarre",unaMano:"Manipulación con una mano",dosPersonas:"Manipulación entre dos personas",controlDestino:"Control significativo en destino",verticalDestino:"Altura vertical destino (cm)",horizontalDestino:"Distancia horizontal destino (cm)",asimetriaDestino:"Asimetría destino (°)"};
+async function load(f){if(!f)return;try{const q=JSON.parse(await f.text());if(q.application!=="MMC Analyzer"||q.module!=="simple"||!Array.isArray(q.tasks)||q.tasks.length>50)throw Error("Proyecto incompatible");if(dirty&&!confirm("¿Descartar cambios?"))return;p={application:"MMC Analyzer",module:"simple",version:4,meta:q.meta||{},tasks:q.tasks.map(t=>({id:String(t.id),name:String(t.name||""),inputs:{...blank(),...t.inputs,horario:t.inputs?.horario||MMCSchedule.blank()}})),simulations:q.simulations||{}};metas.forEach(k=>document.querySelector('[data-meta="'+k+'"]').value=p.meta[k]||"");p.tasks.forEach(t=>syncTemporal(t.inputs));Object.values(p.simulations).forEach(x=>{if(x&&typeof x==="object"&&!Array.isArray(x))syncTemporal(x)});dirty=false;handle=null;name=f.name;render();nav(1);$("status").textContent="Proyecto cargado"+(p.tasks.some(t=>verticalDistance(t.inputs).problems.length)?". Complete o revise las alturas inicial y final; no se deduce la altura final de un desplazamiento antiguo.":"")+(p.tasks.some(t=>durationData(t.inputs).problems.length)?". Complete o revise el horario de cada tarea.":"")}catch(e){$("status").textContent=e.message}}
+const simLabels={peso:"Peso (kg)",horizontal:"Distancia horizontal (cm)",vertical:"Altura vertical inicial (cm)",verticalDestino:"Altura vertical final (cm)",asimetria:"Asimetría (°)",frecuencia:"Frecuencia (levantamientos/min)",agarre:"Calidad del agarre",unaMano:"Manipulación con una mano",dosPersonas:"Manipulación entre dos personas",controlDestino:"Control significativo en destino",horizontalDestino:"Distancia horizontal destino (cm)",asimetriaDestino:"Asimetría destino (°)"};
 const simOptions={agarre:[["","Sin indicar"],["bueno","Bueno"],["malo","Malo"]],unaMano:[["","Sin indicar"],["no","No"],["si","Sí"]],dosPersonas:[["","Sin indicar"],["no","No"],["si","Sí"]],controlDestino:[["no","No"],["si","Sí"]]};
 const simTask=()=>p.tasks.find(t=>t.id===$("simTask").value);
 function simulationInput(t){return p.simulations[t.id]||structuredClone(t.inputs)}
 function displaySimValue(key,value){return simOptions[key]?.find(x=>x[0]===value)?.[1]||(value===undefined||value===""?"—":String(value))}
-function simulationChanges(t,x){const changes=[];for(const key of Object.keys(simLabels)){if(key.endsWith("Destino")&&key!=="controlDestino"&&x.controlDestino!=="si"&&t.inputs.controlDestino!=="si")continue;if(String(t.inputs[key]??"")!==String(x[key]??""))changes.push([simLabels[key],displaySimValue(key,t.inputs[key]),displaySimValue(key,x[key])])}if(JSON.stringify(t.inputs.horario)!==JSON.stringify(x.horario))changes.push(["Horario de la tarea",scheduleDescription(t.inputs.horario),scheduleDescription(x.horario)]);return changes}
+function simulationChanges(t,x){const changes=[];for(const key of Object.keys(simLabels)){if(key.endsWith("Destino")&&key!=="controlDestino"&&key!=="verticalDestino"&&x.controlDestino!=="si"&&t.inputs.controlDestino!=="si")continue;if(String(t.inputs[key]??"")!==String(x[key]??""))changes.push([simLabels[key],displaySimValue(key,t.inputs[key]),displaySimValue(key,x[key])])}if(JSON.stringify(t.inputs.horario)!==JSON.stringify(x.horario))changes.push(["Horario de la tarea",scheduleDescription(t.inputs.horario),scheduleDescription(x.horario)]);return changes}
 function scheduleDescription(s){if(!s)return "Sin horario";return (s.start||"—")+"–"+(s.end||"—")+(s.overnight?" (+1 día)":"")+"; "+(s.blocks||[]).map(b=>(b.start||"—")+"–"+(b.end||"—")+" "+({mmc:"MMC",pausa:"Pausa",otra:b.recovery==="si"?"Otra tarea ligera":"Otra tarea sin recuperación"}[b.type]||"Sin actividad")).join("; ")}
 function simulationComparison(t,x){const original=populationResults(calc(t.inputs)),simulated=populationResults(calc(x));return original.map((base,i)=>{const next=simulated[i],numeric=base.status==="valid"&&next.status==="valid";return{base,next,delta:numeric?next.index-base.index:null,reduction:numeric&&base.index>0?100*(base.index-next.index)/base.index:null}})}
 function simulationReport(t,x){
@@ -262,7 +266,7 @@ function simField(key,x){const label=simLabels[key],options=simOptions[key];retu
 function sim(){
  const t=simTask();$("simEmpty").hidden=!!t;$("simulation").hidden=!t;if(!t)return;
  const x=simulationInput(t);syncTemporal(x);
- $("simInputs").innerHTML=Object.keys(simLabels).filter(k=>!k.endsWith("Destino")||k==="controlDestino"||x.controlDestino==="si").map(k=>simField(k,x)).join('');
+ $("simInputs").innerHTML=Object.keys(simLabels).filter(k=>!k.endsWith("Destino")||k==="controlDestino"||k==="verticalDestino"||x.controlDestino==="si").map(k=>simField(k,x)).join('');
  $("simInputs").querySelectorAll('[data-sim-field]').forEach(input=>{input.oninput=()=>{x[input.dataset.simField]=input.value;p.simulations[t.id]=x;changed();showSim(t,x);if(input.dataset.simField==="controlDestino")sim()}});
  renderSimSchedule(t,x);showSim(t,x);
 }
@@ -278,7 +282,7 @@ function renderSimSchedule(t,x){
  showSimDuration(x);
 }
 function showSimDuration(x){const d=syncTemporal(x);$("simDuration").textContent=d.problems.length?d.problems.join(' '):'Duración simulada: '+d.category.toUpperCase()+' · Período determinante: '+fmt(d.minutes)+' min · Recuperación: '+fmt(d.recoveryMinutes)+' min · MMC total: '+fmt(d.totalMMC)+' min.'}
-function showSim(t,x){const report=simulationReport(t,x);$("simResults").innerHTML='<h2>Comparación de resultados</h2><div class="population-table-scroll">'+report.table+'</div>'+report.notes.map(n=>'<p class="muted">'+safe(n)+'</p>').join('');$("simChanges").innerHTML=report.changeHtml;showSimDuration(x)}
+function showSim(t,x){syncGeometry(x);if($("simGeometry"))$("simGeometry").textContent=geometryFeedback(x);const report=simulationReport(t,x);$("simResults").innerHTML='<h2>Comparación de resultados</h2><div class="population-table-scroll">'+report.table+'</div>'+report.notes.map(n=>'<p class="muted">'+safe(n)+'</p>').join('');$("simChanges").innerHTML=report.changeHtml;showSimDuration(x)}
 function copySimulation(){const reports=p.tasks.filter(t=>p.simulations[t.id]).map(t=>simulationReport(t,p.simulations[t.id]));if(!reports.length){$("status").textContent="No hay cambios simulados para copiar";return}return copyReport(reports.map(r=>r.html).join('<p></p>'),reports.map(r=>r.plain).join('\n\n'),"Comparaciones simuladas copiadas para Word")}
 function copy(type){
  if(type==="sim")return copySimulation();
@@ -294,7 +298,7 @@ $("editTaskSchedule").onclick=()=>nav(2);
 for(const [id,key] of [["shiftStart","start"],["shiftEnd","end"]])$(id).oninput=()=>{const t=selectedTask();if(t){t.inputs.horario[key]=$(id).value;scheduleChanged()}};
 $("shiftOvernight").onchange=()=>{const t=selectedTask();if(t){t.inputs.horario.overnight=$("shiftOvernight").checked;scheduleChanged()}};
 $("addScheduleBlock").onclick=()=>{const t=selectedTask();if(!t)return;const s=t.inputs.horario;if(s.blocks.length>=200)return;s.blocks.push({id:crypto.randomUUID(),start:s.blocks.at(-1)?.end||s.start,end:s.end,type:"",recovery:"",notes:""});scheduleChanged();renderSchedule()};
-document.querySelectorAll("[data-field]").forEach(e=>e.addEventListener("input",()=>{const t=p.tasks.find(t=>t.id===sel);if(t&&!temporalFields.includes(e.dataset.field)){t.inputs[e.dataset.field]=e.value;if(e.dataset.field==="controlDestino")$("destination").hidden=e.value!=="si";updateDurationFeedback(t.inputs);changed()}}));
+document.querySelectorAll("[data-field]").forEach(e=>e.addEventListener("input",()=>{const t=p.tasks.find(t=>t.id===sel);if(t&&!temporalFields.includes(e.dataset.field)){t.inputs[e.dataset.field]=e.value;if(e.dataset.field==="controlDestino")$("destination").hidden=e.value!=="si";syncGeometry(t.inputs);updateGeometryFeedback(t.inputs);updateDurationFeedback(t.inputs);changed()}}));
 document.querySelectorAll("[data-meta]").forEach(e=>e.addEventListener("input",()=>{p.meta[e.dataset.meta]=e.value;changed()}));
 $("save").onclick=()=>save(false);$("saveAs").onclick=()=>save(true);$("load").onchange=e=>{load(e.target.files[0]);e.target.value=""};
 $("openSimulation").onclick=()=>nav(5);
