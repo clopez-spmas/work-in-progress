@@ -294,7 +294,7 @@ $("shiftOvernight").onchange=()=>{const t=selectedTask();if(t){t.inputs.horario.
 $("addScheduleBlock").onclick=()=>{const t=selectedTask();if(!t)return;const s=t.inputs.horario;if(s.blocks.length>=200)return;s.blocks.push({id:crypto.randomUUID(),start:s.blocks.at(-1)?.end||s.start,end:s.end,type:"",recovery:"",notes:""});scheduleChanged();renderSchedule()};
 document.querySelectorAll("[data-field]").forEach(e=>e.addEventListener("input",()=>{const t=p.tasks.find(t=>t.id===sel);if(t&&!temporalFields.includes(e.dataset.field)){t.inputs[e.dataset.field]=e.value;if(e.dataset.field==="controlDestino")$("destination").hidden=e.value!=="si";syncGeometry(t.inputs);updateGeometryFeedback(t.inputs);updateDurationFeedback(t.inputs);changed()}}));
 document.querySelectorAll("[data-meta]").forEach(e=>e.addEventListener("input",()=>{p.meta[e.dataset.meta]=e.value;changed()}));
-$("save").onclick=()=>save(false);$("saveAs").onclick=()=>save(true);$("load").onchange=e=>{load(e.target.files[0]);e.target.value=""};
+$("save").onclick=()=>save(false);$("load").onchange=e=>{load(e.target.files[0]);e.target.value=""};
 $("openSimulation").onclick=()=>nav(5);
 $("backResults").onclick=()=>nav(4);
 $("recalcSim").onclick=()=>{const t=simTask();if(t)showSim(t,simulationInput(t))};
