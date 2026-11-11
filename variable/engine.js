@@ -25,7 +25,10 @@ function production(input){
  const groups=ranges.map((r,i)=>({...r,id:i,count:0,mass:0,mean:0,raw:[]}));
  for(const r of active){const idx=groups.findIndex((g,i)=>r.weight>=g.from&&(r.weight<g.to||(i===4&&r.weight<=g.to)));if(idx<0){problems.push('La simplificación del Excel deja el peso '+r.weight+' kg fuera de las categorías redondeadas. Revise los datos antes de evaluar.');continue}const g=groups[idx];g.count+=r.count;g.mass+=r.weight*r.count;g.raw.push(r)}
  groups.forEach(g=>{g.mean=g.count?round(g.mass/g.count,1):0;g.share=g.count/count;const people=[...new Set(g.raw.map(r=>r.people))];g.people=people[0]||1;g.effectiveWeight=g.mean/g.people;if(people.length>1)problems.push('C'+(g.id+1)+': contiene cargas con distinto número de personas que levantan juntas. El Excel aplica un único número por categoría; separe estas condiciones en tareas independientes.');});
- return{problems,active,groups,count,mass};
+ const workers=number(input.workers),workerProblems=[];
+ if(integer(input.workers)&&active.some(r=>r.people>workers))workerProblems.push('El número total de trabajadores debe ser igual o mayor que las personas que levantan juntas cada carga. Revise ambos campos.');
+ const validWorkers=integer(input.workers)&&!workerProblems.length,participations=active.reduce((sum,r)=>sum+r.count*r.people,0);
+ return{problems,workerProblems,active,groups,count,mass,participations,perWorkerMass:validWorkers?mass/workers:null,perWorkerLifts:validWorkers?participations/workers:null};
 }
 function organization(input){
  const blocks=input.blocks,problems=[];if(!Array.isArray(blocks)||!blocks.length||blocks.length>81)return{problems:['Registre el horario completo, con un máximo de 81 tramos.']};
@@ -107,11 +110,11 @@ function aggregate(subtasks,category,extension){
 }
 function calculate(input){
  const problems=[];if(!input||typeof input!=='object')return{status:'pending',problems:['Datos de la tarea no válidos.']};if(!integer(input.workers))problems.push('Indique un número entero de trabajadores mayor que cero.');if(input.mode&&input.mode!=='individual'||input.oneHand===true)problems.push('El archivo contiene una modalidad sin distribución por carga o levantamientos con una mano pendientes de validar; no se emite un ILV.');
- const p=production(input),o=organization(input);problems.push(...p.problems,...o.problems);if(problems.length)return{status:'pending',problems};
+ const p=production(input),o=organization(input);problems.push(...p.problems,...(p.workerProblems||[]),...o.problems);if(problems.length)return{status:'pending',problems};
  const geo=geometries(input,p);problems.push(...geo.problems);if(problems.length)return{status:'pending',problems,production:p,organization:o};if(geo.critical.length)return{status:'critical',problems:geo.critical,production:p,organization:o};
- const frequency=p.count/number(input.workers)/o.net,subtasks=[];
+ const frequency=p.perWorkerLifts/o.net,subtasks=[];
  for(const c of geo.categories){const h=c.h||geo.h,total=c.origin.poor+c.origin.good+c.destination.poor+c.destination.good;
- for(const [kind,heightFactor,area] of [['poor',.78,0],['good',1,75]]){const count=c.origin[kind]+c.destination[kind];if(!count)continue;const hs=[0,1,2].map(i=>(h['origin'+(kind==='poor'?'Poor':'Good')].includes(i)?1:0)+(h['destination'+(kind==='poor'?'Poor':'Good')].includes(i)?1:0)),hTotal=hs.reduce((s,x)=>s+x,0);hs.forEach((h,i)=>{const share=count/total*h/hTotal;if(!share)return;const rawFrequency=c.g.count/number(input.workers)/o.net*share,subFrequency=round(rawFrequency),fili=c.g.effectiveWeight/(25*heightFactor*[.71,.56,.4][i]*(c.asymmetry==='si'?.81:1)*.9);subtasks.push({category:c.g.id,weight:c.g.effectiveWeight,objectWeight:c.g.mean,people:c.g.people,area,horizontal:[35,45,63][i],share,frequency:subFrequency,rawFrequency,fili})})}}
+ for(const [kind,heightFactor,area] of [['poor',.78,0],['good',1,75]]){const count=c.origin[kind]+c.destination[kind];if(!count)continue;const hs=[0,1,2].map(i=>(h['origin'+(kind==='poor'?'Poor':'Good')].includes(i)?1:0)+(h['destination'+(kind==='poor'?'Poor':'Good')].includes(i)?1:0)),hTotal=hs.reduce((s,x)=>s+x,0);hs.forEach((h,i)=>{const share=count/total*h/hTotal;if(!share)return;const rawFrequency=c.g.count*c.g.people/number(input.workers)/o.net*share,subFrequency=round(rawFrequency),fili=c.g.effectiveWeight/(25*heightFactor*[.71,.56,.4][i]*(c.asymmetry==='si'?.81:1)*.9);subtasks.push({category:c.g.id,weight:c.g.effectiveWeight,objectWeight:c.g.mean,people:c.g.people,area,horizontal:[35,45,63][i],share,frequency:subFrequency,rawFrequency,fili})})}}
  if(!subtasks.length)return{status:'pending',problems:['Complete las geometrías de las categorías activas.']};
  const result=aggregate(subtasks,o.category,o.extension);if(result.critical.length)return{status:'critical',problems:result.critical,production:p,organization:o,subtasks,frequency};
  return{status:'valid',problems:[],base:result.base,production:p,organization:o,frequency,subtasks,buckets:result.buckets,trace:result.trace,groups:populations.map(g=>({...g,index:result.base*25/g.mass,level:level(result.base*25/g.mass)}))};
