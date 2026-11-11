@@ -43,7 +43,49 @@ function organization(input){
 }
 const heightLimits=[10,20,30,40,50,60,70,80,90,100,110,125,130,140,150,160,170,175];
 function heights(text){const values=Array.isArray(text)?text:typeof text==='string'?text.split(/[;,\s]+/).filter(Boolean):[];const ns=values.map(number);if(!ns.length||ns.some(n=>!Number.isFinite(n)))return{problems:['Indique las alturas en centímetros, separadas por punto y coma.']};const critical=ns.some(n=>n<0||n>175),bins=[...new Set(ns.filter(n=>n>=0&&n<=175).map(n=>heightLimits.findIndex(limit=>n<=limit)))];return{problems:[],critical,poor:bins.filter(i=>i<5||i>11).length,good:bins.filter(i=>i>=5&&i<=11).length,values:ns,bins};}
+// Adaptación de los estudios anteriores: conserva las selecciones por zona vertical.
+function geometryRows(input,p){
+ if(Array.isArray(input.geometryRows))return input.geometryRows;
+ const rows=[];
+ for(const g of (p.groups||[]).filter(g=>g.count)){
+  const x=input.geometry?.[g.id]||{};
+  for(const [side,prefix]of [['origin','origin'],['destination','destination']]){
+   const parsed=heights(x[side]);
+   for(const kind of ['Poor','Good']){
+    const values=(parsed.values||[]).filter(v=>kind==='Poor'?(v<=50||v>125):(v>50&&v<=125));
+    const distances=input.horizontal?.[prefix+kind]||[];
+    if(values.length)for(const distance of distances.length?distances:[''])rows.push({category:String(g.id),origin:side==='origin'?values.join('; '):'',destination:side==='destination'?values.join('; '):'',hOrigin:side==='origin'?String(distance):'',hDestination:side==='destination'?String(distance):''});
+   }
+  }
+ }
+ return rows;
+}
+function rowGeometry(input,p){
+ const rows=geometryRows(input,p),problems=[],critical=[],categories=[];
+ rows.forEach((r,i)=>{if(!p.groups.some(g=>g.count&&String(g.id)===String(r.category)))problems.push('Fila '+(i+1)+': seleccione una categoría de peso activa.');if(!String(r.origin||'').trim()&&!String(r.destination||'').trim())problems.push('Fila '+(i+1)+': indique al menos una altura de origen o destino.');});
+ for(const g of (p.groups||[]).filter(g=>g.count)){
+  const selected=rows.filter(r=>String(r.category)===String(g.id)),h={originPoor:[],originGood:[],destinationPoor:[],destinationGood:[]},values={origin:[],destination:[]};
+  for(const r of selected)for(const side of ['origin','destination']){
+   if(!String(r[side]||'').trim())continue;
+   const v=heights(r[side]),key=side==='origin'?'hOrigin':'hDestination',distance=String(r[key]??'');
+   if(v.problems.length)problems.push('C'+(g.id+1)+': alturas de '+(side==='origin'?'origen':'destino')+' no válidas.');
+   values[side].push(...(v.values||[]));
+   if(!['0','1','2','3'].includes(distance))problems.push('C'+(g.id+1)+': seleccione el alcance horizontal de '+(side==='origin'?'origen':'destino')+'.');
+   else for(const kind of ['poor','good'])if(v[kind]>0)h[side+(kind==='poor'?'Poor':'Good')].push(Number(distance));
+   if(distance==='3')critical.push('C'+(g.id+1)+': distancia horizontal superior a 63 cm.');
+  }
+  for(const key of Object.keys(h))h[key]=[...new Set(h[key])];
+  const origin=heights(values.origin),destination=heights(values.destination),asymmetry=input.geometry?.[g.id]?.asymmetry;
+  if(origin.problems.length||destination.problems.length)problems.push('Categoría C'+(g.id+1)+': complete las alturas de origen y destino.');
+  if(origin.critical||destination.critical)critical.push('C'+(g.id+1)+': altura fuera de 0–175 cm.');
+  if(!['si','no','critica'].includes(asymmetry))problems.push('C'+(g.id+1)+': indique la asimetría.');
+  if(asymmetry==='critica')critical.push('C'+(g.id+1)+': asimetría superior a 135°.');
+  categories.push({g,origin,destination,asymmetry,h});
+ }
+ return {problems,critical,categories};
+}
 function geometries(input,p){
+ if(Array.isArray(input.geometryRows))return rowGeometry(input,p);
  const problems=[],critical=[],horizontal=input.horizontal||{},categories=[];
  const h={};for(const k of ['originPoor','originGood','destinationPoor','destinationGood']){const a=horizontal[k];h[k]=Array.isArray(a)?[...new Set(a)]:[];if(h[k].some(x=>![0,1,2,3].includes(x)))problems.push('Distancia horizontal no válida.');if(h[k].includes(3))critical.push('Distancia horizontal superior a 63 cm.');}
  p.groups.filter(g=>g.count>0).forEach(g=>{const x=input.geometry?.[g.id]||{},origin=heights(x.origin),destination=heights(x.destination);if(origin.problems.length||destination.problems.length){problems.push('Categoría C'+(g.id+1)+': complete las alturas de origen y destino.');return}if(origin.critical||destination.critical)critical.push('C'+(g.id+1)+': altura fuera de 0–175 cm.');if(!['si','no','critica'].includes(x.asymmetry))problems.push('C'+(g.id+1)+': indique la asimetría.');if(x.asymmetry==='critica')critical.push('C'+(g.id+1)+': asimetría superior a 135°.');
@@ -68,12 +110,12 @@ function calculate(input){
  const p=production(input),o=organization(input);problems.push(...p.problems,...o.problems);if(problems.length)return{status:'pending',problems};
  const geo=geometries(input,p);problems.push(...geo.problems);if(problems.length)return{status:'pending',problems,production:p,organization:o};if(geo.critical.length)return{status:'critical',problems:geo.critical,production:p,organization:o};
  const frequency=p.count/number(input.workers)/o.net,subtasks=[];
- for(const c of geo.categories){const total=c.origin.poor+c.origin.good+c.destination.poor+c.destination.good;
- for(const [kind,heightFactor,area] of [['poor',.78,0],['good',1,75]]){const count=c.origin[kind]+c.destination[kind];if(!count)continue;const hs=[0,1,2].map(i=>(geo.h['origin'+(kind==='poor'?'Poor':'Good')].includes(i)?1:0)+(geo.h['destination'+(kind==='poor'?'Poor':'Good')].includes(i)?1:0)),hTotal=hs.reduce((s,x)=>s+x,0);hs.forEach((h,i)=>{const share=count/total*h/hTotal;if(!share)return;const rawFrequency=c.g.count/number(input.workers)/o.net*share,subFrequency=round(rawFrequency),fili=c.g.mean/(25*heightFactor*[.71,.56,.4][i]*(c.asymmetry==='si'?.81:1)*.9);subtasks.push({category:c.g.id,weight:c.g.mean,area,horizontal:[35,45,63][i],share,frequency:subFrequency,rawFrequency,fili})})}}
+ for(const c of geo.categories){const h=c.h||geo.h,total=c.origin.poor+c.origin.good+c.destination.poor+c.destination.good;
+ for(const [kind,heightFactor,area] of [['poor',.78,0],['good',1,75]]){const count=c.origin[kind]+c.destination[kind];if(!count)continue;const hs=[0,1,2].map(i=>(h['origin'+(kind==='poor'?'Poor':'Good')].includes(i)?1:0)+(h['destination'+(kind==='poor'?'Poor':'Good')].includes(i)?1:0)),hTotal=hs.reduce((s,x)=>s+x,0);hs.forEach((h,i)=>{const share=count/total*h/hTotal;if(!share)return;const rawFrequency=c.g.count/number(input.workers)/o.net*share,subFrequency=round(rawFrequency),fili=c.g.mean/(25*heightFactor*[.71,.56,.4][i]*(c.asymmetry==='si'?.81:1)*.9);subtasks.push({category:c.g.id,weight:c.g.mean,area,horizontal:[35,45,63][i],share,frequency:subFrequency,rawFrequency,fili})})}}
  if(!subtasks.length)return{status:'pending',problems:['Complete las geometrías de las categorías activas.']};
  const result=aggregate(subtasks,o.category,o.extension);if(result.critical.length)return{status:'critical',problems:result.critical,production:p,organization:o,subtasks,frequency};
  return{status:'valid',problems:[],base:result.base,production:p,organization:o,frequency,subtasks,buckets:result.buckets,trace:result.trace,groups:populations.map(g=>({...g,index:result.base*25/g.mass,level:level(result.base*25/g.mass)}))};
 }
 function populationResults(result){return populations.map((g,i)=>result.status==='valid'?result.groups[i]:{...g,index:null,level:result.status==='critical'?bands[4]:{label:'NO CALCULABLE',color:'#e2e8f0',text:'#334155'}})}
-globalThis.VLIEngine={calculate,production,organization,geometries,heights,fm,aggregate,percentile,round,populationResults,populations,level};
+globalThis.VLIEngine={calculate,production,organization,geometries,geometryRows,heights,fm,aggregate,percentile,round,populationResults,populations,level};
 })();
