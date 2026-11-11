@@ -26,7 +26,9 @@ El horario del archivo sustituye la recuperación del último período por 500 m
 
 La síntesis del PDF se refiere a las categorías simplificadas, que pueden tener un peso medio menor que el mayor peso real. Los datos de producción originales permanecen en el estudio y se utilizan para la masa acumulada.
 
-La versión inicial emite índices únicamente para levantamientos individuales con ambas manos. Los campos de una mano y levantamiento simultáneo entre personas no están disponibles en el editor y se bloquean si aparecen en un estudio importado. Sus correcciones presentan discrepancias entre cálculos intermedios y el ILV final del archivo fuente y requieren validación separada.
+Cada fila de producción admite el número de personas que levantan juntas cada carga (vacío o 1 = individual). Se conserva el peso real para las categorías y la masa acumulada. Como `2.Datos produccion!X28:Y32`, el peso medio representativo de cada categoría se divide entre el número de personas, sin redondear de nuevo antes del FILI. No se añade el factor 0,85 de cálculos intermedios que no interviene en esta ruta final del Excel. La frecuencia sigue siendo objetos × levantamientos / trabajadores de la tarea / minutos netos, sin una segunda división por el equipo simultáneo.
+
+El Excel dispone de un único número de personas por categoría simplificada. Si varias filas terminan en una misma categoría con distinto número de personas, se solicita separar esas condiciones en tareas; no se inventa un promedio de equipos. Los archivos anteriores sin este campo conservan el cálculo individual. Los levantamientos con una mano y las modalidades antiguas sin distribución por carga siguen pendientes de validar.
 
 Si los límites de cinco categorías, redondeados como en el Excel, dejan una carga fuera de los intervalos, el programa solicita revisión y no asigna esa carga silenciosamente.
 
