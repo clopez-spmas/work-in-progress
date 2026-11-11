@@ -77,9 +77,9 @@ $('prev').onclick=()=>nav(page-1);$('next').onclick=()=>nav(page+1);$('openSim')
 $('copyResults').onclick=()=>copyReports(project.tasks.map(t=>resultReport(t)),'Resultados copiados para Word');$('copySim').onclick=()=>copyReports(project.tasks.filter(t=>project.simulations[t.id]).map(t=>comparisonReport(t,project.simulations[t.id])),'Simulaciones copiadas para Word');
 function beforeUnload(e){if(dirty||saving){e.preventDefault();e.returnValue=true;}}
 function exitToHome(){window.location.assign($('home').href);}
-$('home').onclick=e=>{if(e.button!==0||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey||(!dirty&&!saving))return;e.preventDefault();$('unsavedDialog').showModal();};
+$('home').onclick=e=>{if(e.button!==0||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey||(!dirty&&!saving))return;e.preventDefault();$('unsavedSaveStatus').textContent='';$('unsavedDialog').showModal();};
 $('stayHere').onclick=()=>$('unsavedDialog').close();
-$('discardAndLeave').onclick=()=>{if(saving){$('status').textContent='Espere a que termine el guardado.';return;}dirty=false;$('unsavedDialog').close();exitToHome();};
-$('saveAndLeave').onclick=async()=>{if(await save()){ $('unsavedDialog').close();exitToHome();}};
+$('discardAndLeave').onclick=()=>{if(saving){$('unsavedSaveStatus').textContent='Espere a que termine el guardado.';return;}dirty=false;$('unsavedDialog').close();exitToHome();};
+$('saveAndLeave').onclick=async()=>{$('saveAndLeave').disabled=true;$('unsavedSaveStatus').textContent='Guardando…';try{if(await save()){$('unsavedDialog').close();exitToHome();}else $('unsavedSaveStatus').textContent=$('status').textContent;}finally{$('saveAndLeave').disabled=false;}};
 window.addEventListener('beforeunload',beforeUnload);nav(1);
 })();
