@@ -5,6 +5,7 @@
 const blank=()=>({start:"",end:"",overnight:false,blocks:[]});
 const clock=value=>typeof value==="string"&&/^\d{2}:\d{2}$/.test(value)&&Number(value.slice(0,2))<24&&Number(value.slice(3))<60?Number(value.slice(0,2))*60+Number(value.slice(3)):NaN;
 const category=(work,rest)=>work<=60&&rest>=work?"corta":work<=120&&rest>=.3*work?"media":null;
+function interval(s,b){const start=clock(s?.start),end=clock(s?.end)+(s?.overnight===true?1440:0);let from=clock(b?.start),to=clock(b?.end);if(s?.overnight===true){if(from<start)from+=1440;if(to<start||(to===start&&from>start))to+=1440;if(end-start===1440&&from===start&&to===start)to+=1440;}return{from,to,minutes:Number.isFinite(from)&&Number.isFinite(to)&&to>from?to-from:null};}
 function analyze(schedule){
  const problems=[],s=schedule;
  if(!s||typeof s!=="object"||Array.isArray(s))return{problems:["Complete el horario de esta tarea en la pantalla 2."]};
@@ -19,8 +20,7 @@ function analyze(schedule){
  const segments=[];
  s.blocks.forEach((b,i)=>{
   if(!b||typeof b!=="object"){problems.push("Tramo "+(i+1)+": datos no válidos.");return}
-  let from=clock(b.start),to=clock(b.end);
-  if(overnight){if(from<start)from+=1440;if(to<start)to+=1440;}
+  const {from,to}=interval(s,b);
   if(!Number.isFinite(from)||!Number.isFinite(to)||to<=from){problems.push("Tramo "+(i+1)+": revise las horas de inicio y fin.");return}
   if(from<start||to>end)problems.push("Tramo "+(i+1)+": queda fuera de la jornada.");
   if(!["mmc","pausa","otra"].includes(b.type))problems.push("Tramo "+(i+1)+": seleccione Manipulación, Pausa u Otra tarea.");
@@ -67,5 +67,6 @@ function analyze(schedule){
  return{problems:[],category:governing.category,minutes:governing.minutes,recoveryMinutes:governing.recoveryMinutes,totalMMC,shiftMinutes:end-start,extension:Math.max(8,Math.ceil(totalMMC/60)),groups,segments,start,end,
   pauseMinutes:segments.filter(b=>b.type==="pausa").reduce((a,b)=>a+b.end-b.start,0),otherMinutes:segments.filter(b=>b.type==="otra").reduce((a,b)=>a+b.end-b.start,0),source:"horario"};
 }
-globalThis.MMCSchedule={blank,analyze,clock};
+globalThis.MMCSchedule={blank,analyze,clock,interval};
 })();
+

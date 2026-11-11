@@ -13,7 +13,7 @@ function fm(f,duration,height=75){
  let i=t.findIndex(r=>r[0]>=value);if(i<0)return 0;if(t[i][0]===value)return t[i][column];
  const a=t[i-1],b=t[i];return a[column]+(b[column]-a[column])*(value-a[0])/(b[0]-a[0]);
 }
-function organization(d){const problems=[],blocks=d?.blocks;if(!Array.isArray(blocks)||!blocks.length||blocks.length>81)return{problems:['Registre el horario completo (máximo 81 tramos).']};let shift=0,net=0,push=0,duration=0;
+function organization(d){const timed=globalThis.MMCClockSchedule.resolve(d);if(timed.problems.length)return{problems:timed.problems};const problems=[],blocks=timed.blocks;if(!Array.isArray(blocks)||!blocks.length||blocks.length>81)return{problems:['Registre el horario completo (máximo 81 tramos).']};let shift=0,net=0,push=0,duration=0;
  for(const [i,b]of blocks.entries()){const m=num(b.minutes);if(!['mmc','otra','empuje'].includes(b.type)||!(m>0)){problems.push('Tramo '+(i+1)+': indique actividad y minutos positivos.');continue;}shift+=m;if(b.type==='mmc')net+=m;if(b.type==='empuje')push+=m;duration=Math.max(duration,m);}
  if(!net)problems.push('El horario debe incluir levantamiento manual de cargas.');if(shift>1440)problems.push('La jornada supera 24 horas.');
  // 3. Organizacion!CJ10=MAX(B10:CD10), incluyendo descansos. No se reutiliza la duración VLI.

@@ -47,3 +47,9 @@ Cinco pantallas: datos/subtareas, horario, condiciones de subtareas, resultados 
 Las comprobaciones incluyen la igualdad de FILI, índice individual e índice compuesto, campos vacíos, límites geométricos, formato JSON, simulación independiente, resumen de cambios y aviso de salida.
 
 Esto acredita la correspondencia con las fórmulas ensayadas. No constituye una ejecución nativa en Microsoft Excel ni una validación normativa externa. El archivo original se conserva intacto.
+
+## Edición del horario mediante horas
+
+La pantalla y la simulación recogen inicio y fin de jornada, marca de fin al día siguiente e inicio y fin de cada tramo. `js/clock-schedule.js` calcula los minutos y exige cobertura completa de la jornada, sin huecos, solapamientos ni tramos exteriores. Los motores conservan sus categorías y fórmulas originales; únicamente reciben minutos obtenidos de las horas. Las horas prevalecen sobre cualquier campo `minutes` antiguo o desactualizado. Los estudios anteriores con inicio conocido y duraciones enteras se convierten automáticamente a horas sin modificar sus índices. Los estudios sin hora de inicio no reciben una hora inventada.
+
+Verificación adicional: `node tests/clock-schedule.cjs` (día, medianoche, jornada de 24 horas, datos incompletos, integridad de minutos, conversión de formatos, guardado/carga y aislamiento de simulación).

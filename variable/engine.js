@@ -31,7 +31,8 @@ function production(input){
  return{problems,workerProblems,active,groups,count,mass,participations,excelLiftsPerWorker:validWorkers?count/workers:null,perWorkerMass:validWorkers?mass/workers:null,perWorkerLifts:validWorkers?participations/workers:null};
 }
 function organization(input){
- const blocks=input.blocks,problems=[];if(!Array.isArray(blocks)||!blocks.length||blocks.length>81)return{problems:['Registre el horario completo, con un máximo de 81 tramos.']};
+ const timed=globalThis.MMCClockSchedule.resolve(input);if(timed.problems.length)return{problems:timed.problems};
+ const blocks=timed.blocks,problems=[];if(!Array.isArray(blocks)||!blocks.length||blocks.length>81)return{problems:['Registre el horario completo, con un máximo de 81 tramos.']};
  const seq=[];blocks.forEach((b,i)=>{const minutes=number(b?.minutes);if(!(minutes>0)||minutes>1440||!['mmc','otra','empuje'].includes(b?.type)){problems.push('Tramo '+(i+1)+': indique actividad y minutos positivos.');return}if(seq.at(-1)?.type===b.type)seq.at(-1).minutes+=minutes;else seq.push({type:b.type,minutes})});
  if(problems.length)return{problems};const shift=seq.reduce((s,b)=>s+b.minutes,0),net=seq.filter(b=>b.type==='mmc').reduce((s,b)=>s+b.minutes,0),push=seq.filter(b=>b.type==='empuje').reduce((s,b)=>s+b.minutes,0);
  if(!(net>0))problems.push('El horario debe incluir manipulación manual de cargas.');if(shift>1440)problems.push('La jornada supera 24 horas.');if(net>720)problems.push('La manipulación supera las 12 horas contempladas en la tabla.');if(seq.filter(b=>b.type==='mmc').length>20||seq.filter(b=>b.type==='empuje').length>20)problems.push('El Excel admite hasta 20 bloques de levantamiento y 20 de empuje/tracción.');

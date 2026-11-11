@@ -3,3 +3,5 @@
 .geometry-lines{min-width:1000px}.geometry-lines input{min-width:150px}.geometry-lines select{min-width:155px}.geometry-lines th{white-space:normal}.geometry-lines td{vertical-align:top}
 
 .production-editor .vli-table{min-width:1050px}.geometry-category{margin-bottom:18px}
+
+.schedule-editor .check-field{display:flex;flex-direction:row;align-items:center;gap:8px}.schedule-editor .check-field input{width:auto}.schedule-row{grid-template-columns:minmax(200px,1.5fr) minmax(110px,1fr) minmax(110px,1fr) minmax(130px,1.3fr);align-items:end}.schedule-row>span{align-self:center}.schedule-row>button{justify-self:end;grid-column:-2/-1}@media(max-width:760px){.schedule-row{grid-template-columns:1fr 1fr}.schedule-row>label:first-child{grid-column:1/-1}.schedule-row>button{grid-column:2}}

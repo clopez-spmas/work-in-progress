@@ -41,3 +41,9 @@ Si los límites de cinco categorías, redondeados como en el Excel, dejan una ca
 `node tests/variable.cjs`
 
 El caso de referencia del archivo aportado (100 levantamientos de 18,5 kg, cuatro trabajadores, 115 minutos netos, duración corta, geometría 51–125 cm / H 25–40 cm y asimetría marcada) devuelve 1,4325681831794734 para la masa de referencia de 25 kg.
+
+## Edición del horario mediante horas
+
+La pantalla y la simulación recogen inicio y fin de jornada, marca de fin al día siguiente e inicio y fin de cada tramo. `js/clock-schedule.js` calcula los minutos y exige cobertura completa de la jornada, sin huecos, solapamientos ni tramos exteriores. Los motores conservan sus categorías y fórmulas originales; únicamente reciben minutos obtenidos de las horas. Las horas prevalecen sobre cualquier campo `minutes` antiguo o desactualizado. Los estudios anteriores con inicio conocido y duraciones enteras se convierten automáticamente a horas sin modificar sus índices. Los estudios sin hora de inicio no reciben una hora inventada.
+
+Verificación adicional: `node tests/clock-schedule.cjs` (día, medianoche, jornada de 24 horas, datos incompletos, integridad de minutos, conversión de formatos, guardado/carga y aislamiento de simulación).
