@@ -56,3 +56,24 @@ const excelShort={...structuredClone(base),loads:[{weight:'10',objects:'8',lifts
 assert.equal(pr.frequency,8/2/55);checks++;
 const asymOnly=structuredClone(summaryBase);asymOnly.geometry[0].asymmetry='si';const asymDelta=U.changes({data:summaryBase},asymOnly);assert.equal(asymDelta.length,1);assert.match(asymDelta[0],/^C1 · 20,0 kg · Asimetría:/);checks++;
 console.log(JSON.stringify({ok:true,checks,excelReference:r.base,model:'A',individualBothHands:true,originalUnchanged:true,saveReload:true,reportColors:true}));
+// Leaving with unsaved changes: clean, changed, cancelled, failed and concurrent saves.
+(async()=>{
+ const elements={},events={},destinations=[];
+ const element=id=>elements[id]??=( {value:'',innerHTML:'',textContent:'',hidden:false,disabled:false,href:'../',open:false,showModal(){this.open=true},close(){this.open=false}} );
+ const box={structuredClone,Blob,setTimeout,scrollTo(){},confirm:()=>true,document:{getElementById:element,querySelectorAll:()=>[],addEventListener(){}},window:{addEventListener:(name,fn)=>events[name]=fn,location:{assign:url=>destinations.push(url)}}};
+ vm.createContext(box);box.VLIEngine=E;
+ vm.runInContext(source.replace("window.addEventListener('beforeunload',beforeUnload);nav(1);","globalThis.exitAPI={changed,save};window.addEventListener('beforeunload',beforeUnload);nav(1);"),box);
+ const A=box.exitAPI,event=()=>({blocked:false,preventDefault(){this.blocked=true}});let e=event();events.beforeunload(e);assert.equal(e.blocked,false);
+ A.changed();e=event();events.beforeunload(e);assert.equal(e.blocked,true);
+ let click={button:0,preventDefault(){this.blocked=true}};element('home').onclick(click);assert.equal(click.blocked,true);assert.equal(element('unsavedDialog').open,true);element('stayHere').onclick();assert.equal(element('unsavedDialog').open,false);assert.equal(destinations.length,0);
+ box.window.showSaveFilePicker=async()=>{throw Object.assign(Error('cancel'),{name:'AbortError'})};assert.equal(await A.save(),false);e=event();events.beforeunload(e);assert.equal(e.blocked,true);await element('saveAndLeave').onclick();assert.equal(destinations.length,0);
+ box.window.showSaveFilePicker=async()=>({name:'test.json',createWritable:async()=>{throw Error('disco lleno')}});assert.equal(await A.save(),false);e=event();events.beforeunload(e);assert.equal(e.blocked,true);
+ let release,started;const writing=new Promise(resolve=>started=resolve);box.window.showSaveFilePicker=async()=>({name:'test.json',createWritable:async()=>({write:()=>{started();return new Promise(resolve=>release=resolve)},close:async()=>{}})});
+ // Fresh instance for concurrent-save behavior; the previous instance exercised failed writes.
+ const second={...box,window:{...box.window},document:box.document};vm.createContext(second);second.VLIEngine=E;vm.runInContext(source.replace("window.addEventListener('beforeunload',beforeUnload);nav(1);","globalThis.exitAPI={changed,save};window.addEventListener('beforeunload',beforeUnload);nav(1);"),second);
+ second.exitAPI.changed();const pending=second.exitAPI.save();await writing;second.exitAPI.changed();release();assert.equal(await pending,false);e=event();events.beforeunload(e);assert.equal(e.blocked,true);assert.match(element('status').textContent,/posteriores/);
+ // Retry the same writable handle, now without edits during the write.
+ const pendingAgain=second.exitAPI.save();await Promise.resolve();await Promise.resolve();await Promise.resolve();release();assert.equal(await pendingAgain,true);e=event();events.beforeunload(e);assert.equal(e.blocked,false);
+ second.exitAPI.changed();element('discardAndLeave').onclick();assert.equal(destinations.length,1);
+ console.log(JSON.stringify({exitProtection:true,cancelledSaveKeepsWarning:true,failedSaveKeepsWarning:true,editsDuringSaveRemainUnsaved:true,cleanStudyDoesNotWarn:true,homeDialog:true}));
+})().catch(error=>{console.error(error);process.exitCode=1});
