@@ -28,7 +28,7 @@ function production(input){
  const workers=number(input.workers),workerProblems=[];
  if(integer(input.workers)&&active.some(r=>r.people>workers))workerProblems.push('El número total de trabajadores debe ser igual o mayor que las personas que levantan juntas cada carga. Revise ambos campos.');
  const validWorkers=integer(input.workers)&&!workerProblems.length,participations=active.reduce((sum,r)=>sum+r.count*r.people,0);
- return{problems,workerProblems,active,groups,count,mass,participations,perWorkerMass:validWorkers?mass/workers:null,perWorkerLifts:validWorkers?participations/workers:null};
+ return{problems,workerProblems,active,groups,count,mass,participations,excelLiftsPerWorker:validWorkers?count/workers:null,perWorkerMass:validWorkers?mass/workers:null,perWorkerLifts:validWorkers?participations/workers:null};
 }
 function organization(input){
  const blocks=input.blocks,problems=[];if(!Array.isArray(blocks)||!blocks.length||blocks.length>81)return{problems:['Registre el horario completo, con un máximo de 81 tramos.']};
@@ -40,9 +40,11 @@ function organization(input){
  // La acumulación suma los períodos activos; la categoría media exige período >60 min.
  const work=seq.map((b,i)=>({b,i})).filter(x=>x.b.type!=='otra');let accumulated=0,previousFlag=0;const flags=[],periods=[];
  work.forEach(({b,i},j)=>{const minutes=b.minutes+(previousFlag===1?accumulated:0),rest=j===work.length-1?500:(seq[i+1]?.type==='otra'?seq[i+1].minutes:0);const flag=minutes<=60&&rest/minutes>=1?0:minutes>60&&minutes<=120&&rest/minutes>=.3?-1:minutes>120?-2:1;accumulated=minutes;previousFlag=flag;flags.push(flag);periods.push({minutes,rest,terminal:j===work.length-1,flag})});
- const shortTramo=seq.some((b,i)=>b.minutes<5&&(b.type==='mmc'||(b.type==='otra'&&i>0&&i<seq.length-1)));
- const category=shortTramo?'larga':flags.every(f=>f!==-1&&f!==-2)?'corta':flags.some(f=>f===-2)?'larga':'media';
- return{problems,category,shift,net,push,periods,shortTramo,extension:net<481?1:net<541?.97:net<601?.93:net<661?.89:.85};
+ // CE12 includes every entered interval from C onward, including push and terminal rest; initial rest B is excluded.
+ const shortTramo=seq.some((b,i)=>b.minutes<5&&!(i===0&&b.type==='otra'));
+ // 5.LI!Y22:AA22 are all FALSE when CE12 is TRUE. AB11 then yields FALSE (0); EF/EP use the <=60 branch.
+ const category=shortTramo?'sin seleccionar':flags.every(f=>f!==-1&&f!==-2)?'corta':flags.some(f=>f===-2)?'larga':'media';
+ return{problems,category,frequencyCategory:shortTramo?'corta':category,durationValue:shortTramo?0:({corta:60,media:120,larga:180}[category]),shift,net,push,periods,shortTramo,extension:net<481?1:net<541?.97:net<601?.93:net<661?.89:.85};
 }
 const heightLimits=[10,20,30,40,50,60,70,80,90,100,110,125,130,140,150,160,170,175];
 function heights(text){const values=Array.isArray(text)?text:typeof text==='string'?text.split(/[;,\s]+/).filter(Boolean):[];const ns=values.map(number);if(!ns.length||ns.some(n=>!Number.isFinite(n)))return{problems:['Indique las alturas en centímetros, separadas por punto y coma.']};const critical=ns.some(n=>n<0||n>175),bins=[...new Set(ns.filter(n=>n>=0&&n<=175).map(n=>heightLimits.findIndex(limit=>n<=limit)))];return{problems:[],critical,poor:bins.filter(i=>i<5||i>11).length,good:bins.filter(i=>i>=5&&i<=11).length,values:ns,bins};}
@@ -112,11 +114,11 @@ function calculate(input){
  const problems=[];if(!input||typeof input!=='object')return{status:'pending',problems:['Datos de la tarea no válidos.']};if(!integer(input.workers))problems.push('Indique un número entero de trabajadores mayor que cero.');if(input.mode&&input.mode!=='individual'||input.oneHand===true)problems.push('El archivo contiene una modalidad sin distribución por carga o levantamientos con una mano pendientes de validar; no se emite un ILV.');
  const p=production(input),o=organization(input);problems.push(...p.problems,...(p.workerProblems||[]),...o.problems);if(problems.length)return{status:'pending',problems};
  const geo=geometries(input,p);problems.push(...geo.problems);if(problems.length)return{status:'pending',problems,production:p,organization:o};if(geo.critical.length)return{status:'critical',problems:geo.critical,production:p,organization:o};
- const frequency=p.perWorkerLifts/o.net,subtasks=[];
+ const frequency=p.excelLiftsPerWorker/o.net,subtasks=[];
  for(const c of geo.categories){const h=c.h||geo.h,total=c.origin.poor+c.origin.good+c.destination.poor+c.destination.good;
- for(const [kind,heightFactor,area] of [['poor',.78,0],['good',1,75]]){const count=c.origin[kind]+c.destination[kind];if(!count)continue;const hs=[0,1,2].map(i=>(h['origin'+(kind==='poor'?'Poor':'Good')].includes(i)?1:0)+(h['destination'+(kind==='poor'?'Poor':'Good')].includes(i)?1:0)),hTotal=hs.reduce((s,x)=>s+x,0);hs.forEach((h,i)=>{const share=count/total*h/hTotal;if(!share)return;const rawFrequency=c.g.count*c.g.people/number(input.workers)/o.net*share,subFrequency=round(rawFrequency),fili=c.g.effectiveWeight/(25*heightFactor*[.71,.56,.4][i]*(c.asymmetry==='si'?.81:1)*.9);subtasks.push({category:c.g.id,weight:c.g.effectiveWeight,objectWeight:c.g.mean,people:c.g.people,area,horizontal:[35,45,63][i],share,frequency:subFrequency,rawFrequency,fili})})}}
+ for(const [kind,heightFactor,area] of [['poor',.78,0],['good',1,75]]){const count=c.origin[kind]+c.destination[kind];if(!count)continue;const hs=[0,1,2].map(i=>(h['origin'+(kind==='poor'?'Poor':'Good')].includes(i)?1:0)+(h['destination'+(kind==='poor'?'Poor':'Good')].includes(i)?1:0)),hTotal=hs.reduce((s,x)=>s+x,0);hs.forEach((h,i)=>{const share=count/total*h/hTotal;if(!share)return;const rawFrequency=c.g.count/number(input.workers)/o.net*share,subFrequency=round(rawFrequency),fili=c.g.effectiveWeight/(25*heightFactor*[.71,.56,.4][i]*(c.asymmetry==='si'?.81:1)*.9);subtasks.push({category:c.g.id,weight:c.g.effectiveWeight,objectWeight:c.g.mean,people:c.g.people,area,horizontal:[35,45,63][i],share,frequency:subFrequency,rawFrequency,fili})})}}
  if(!subtasks.length)return{status:'pending',problems:['Complete las geometrías de las categorías activas.']};
- const result=aggregate(subtasks,o.category,o.extension);if(result.critical.length)return{status:'critical',problems:result.critical,production:p,organization:o,subtasks,frequency};
+ const result=aggregate(subtasks,o.frequencyCategory,o.extension);if(result.critical.length)return{status:'critical',problems:result.critical,production:p,organization:o,subtasks,frequency};
  return{status:'valid',problems:[],base:result.base,production:p,organization:o,frequency,subtasks,buckets:result.buckets,trace:result.trace,groups:populations.map(g=>({...g,index:result.base*25/g.mass,level:level(result.base*25/g.mass)}))};
 }
 function populationResults(result){return populations.map((g,i)=>result.status==='valid'?result.groups[i]:{...g,index:null,level:result.status==='critical'?bands[4]:{label:'NO CALCULABLE',color:'#e2e8f0',text:'#334155'}})}
