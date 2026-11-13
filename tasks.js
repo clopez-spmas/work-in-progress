@@ -27,7 +27,7 @@ $('taskNetDuration').addEventListener('input',()=>{if(!switching)$('duration').v
 $('addObject').addEventListener('click',()=>{if(selected)mark()});
 $('objects').addEventListener('click',e=>{if(e.target.closest('.removeObject')&&selected)mark()});
 const oldEvaluate=$('calculate').onclick;
-$('calculate').onclick=()=>{if(!selected){$('messages').textContent='Añada y seleccione una tarea antes de calcular.';return;}store();oldEvaluate();};
+$('calculate').onclick=()=>{if(!selected){$('messages').textContent='Añada y seleccione una tarea antes de calcular.';return;}const schedule=window.transportSchedule?.validate();if(!schedule?.ok){$('messages').textContent='Complete el horario de la tarea: '+(schedule?.message||'faltan tramos');return;}store();oldEvaluate();};
 function fullStudy(){store();return{version:2,method:'transporte',meta:Object.fromEntries(['date','company','area'].map(id=>[id,$(id).value])),tasks:tasks.map(t=>structuredClone(t)),selectedTaskId:selected};}
 function safeName(n){const x=String(n||'').trim();return !x||/[\\/<>:"|?*]/.test(x)||x==='.'||x==='..'?null:/\.json$/i.test(x)?x:x+'.json'}
 let fileName='transporte-cargas.json';
@@ -44,6 +44,6 @@ else throw Error('Versión no compatible');
 switching=true;['date','company','area'].forEach(id=>$(id).value=data.version===2?(data.meta?.[id]??''):(data.fields?.[id]??''));switching=false;
 tasks=imported;selected=tasks.find(t=>t.id===data.selectedTaskId)?.id||tasks[0]?.id||null;if(selected)apply(tasks.find(t=>t.id===selected));else clearTaskForm();draw();fileName=safeName(file.name)||'transporte-cargas.json';revision++;savedRevision=revision;setStudyDirty(false);$('messages').textContent='Estudio cargado: '+tasks.length+' tareas.';}catch(err){$('messages').textContent='Error al cargar: '+err.message}finally{e.target.value=''}};
 $('wizardSave').onclick=()=>$('save').click();$('wizardLoad').onclick=()=>$('load').click();
-const originalShow=showWizardPage;showWizardPage=function(page){if(selected)store();if(page>=4&&selected){const v=window.transportSchedule?.validate();if(v&&!v.ok&&v.hasSchedule){$('scheduleFeedback').textContent=v.message;originalShow(2);return;}}originalShow(page)};
+const originalShow=showWizardPage;showWizardPage=function(page){if(selected)store();if(page>=4&&selected){const v=window.transportSchedule?.validate();if(v&&!v.ok&&selected){$('scheduleFeedback').textContent=v.message;originalShow(2);return;}}originalShow(page)};
 draw();
 })();
