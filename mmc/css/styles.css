@@ -90,3 +90,17 @@
 /* Página independiente de simulación. */
 .sim-page-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}.sim-page-heading h1{margin-top:0}.sim-page-heading button{flex-shrink:0}.sim-section{margin:24px 0;padding:20px;border:1px solid #cbdce9;border-radius:10px;background:#f8fbfe}.sim-section h2{margin-top:0}.sim-comparison{min-width:820px}.sim-comparison th:first-child{text-align:left}.sim-schedule-block{display:grid;grid-template-columns:1fr 1fr 1.4fr 1.4fr;gap:12px;border:1px solid #cbdce9;border-radius:8px;background:#fff;padding:14px}.sim-schedule-block strong{grid-column:1/-1;color:#005a9c}.sim-schedule-block button{justify-self:start}.sim-duration{margin-top:16px}#simChanges li{margin:10px 0;overflow-wrap:anywhere}#simResults{margin-top:24px}
 @media(max-width:760px){.sim-page-heading{flex-direction:column}.sim-schedule-block{grid-template-columns:1fr 1fr}.sim-section{padding:14px}}@media(max-width:460px){.sim-schedule-block{grid-template-columns:1fr}}
+
+/* Tabla principal de tareas MMC Simple */
+.mmc-overview-scroll{overflow-x:auto;width:100%}
+.mmc-task-overview{width:100%;border-collapse:collapse;min-width:790px}
+.mmc-task-overview th{padding:12px 10px;text-align:left;background:#f3f6f9;color:#07518d;border-bottom:1px solid #d6e2ed}
+.mmc-task-overview td{padding:11px 10px;vertical-align:middle;border-bottom:1px solid #dbe5ee}
+.mmc-task-overview td:nth-child(2){min-width:170px;width:25%}
+.mmc-task-overview td:nth-child(2) input{font-weight:600}
+.mmc-overview-risk{border-radius:7px;padding:8px 10px;margin:3px 0;min-width:125px;font-size:.82rem}
+.mmc-overview-risk>div{display:flex;justify-content:space-between;gap:8px}
+.mmc-overview-risk small{display:block;margin-top:3px}
+.mmc-overview-actions{display:flex;flex-wrap:wrap;gap:6px;min-width:160px}
+.mmc-overview-actions button{padding:8px 10px}
+.mmc-overview-actions .mmc-danger{color:#b42318;border-color:#e66d66}
