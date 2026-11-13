@@ -27,7 +27,8 @@ else if(mode==='variable')items=[...$('objects').children].map(el=>({weight:Numb
 else throw Error('La modalidad de alta precisión no está disponible en esta versión.');
 if(!items.length|| (mode==='constant'&&(!$('weight').value||!$('count').value)) || (mode==='variable'&&[...$('objects').children].some(el=>!el.querySelector('.objectWeight').value||!el.querySelector('.objectCount').value)) ||items.some(x=>!valid(x.weight,3)||!Number.isInteger(x.count)||x.count<0)||items.every(x=>x.count===0))throw Error('Introduzca pesos válidos (al menos 3 kg) y cantidades enteras; debe existir al menos un objeto transportado.');
 if(!['one','both'].includes($('hands').value)||$('distance').value===''||$('height').value==='')throw Error('Seleccione manos utilizadas, distancia y altura.');
-// Multiplicadores de las condiciones de transporte.\nconst mhand=$('hands').value==='one'?.6:1,mdist=num('distance'),mpost=num('height'),nFactors=factors.filter((_,i)=>$('factor'+i).checked).length,madd=nFactors===0?1:nFactors===1?.8:.7;
+// Multiplicadores de las condiciones de transporte.
+const mhand=$('hands').value==='one'?.6:1,mdist=num('distance'),mpost=num('height'),nFactors=factors.filter((_,i)=>$('factor'+i).checked).length,madd=nFactors===0?1:nFactors===1?.8:.7;
 const sorted=[mdist,mpost,madd].sort((a,b)=>a-b),reduction=mhand*sorted[0]*sorted[1];
 const totalMass=items.reduce((s,x)=>s+x.weight*x.count,0),massMinute=totalMass/(duration*workers);
 const rows=periods.map(([name,minutes,reference],i)=>{const applicable=i===0||duration>=minutes;const mass=applicable?massMinute*(i===6?duration:minutes):null;const limit=reference*reduction;const ir=mass===null||limit===0?null:mass/limit;return{name,mass,limit,ir,applicable};});
