@@ -64,7 +64,7 @@ function renderSchedule(){
   const field=(title,key,type)=>{const label=document.createElement("label");label.textContent=title;const input=document.createElement("input");input.type=type;input.value=block[key]??"";input.setAttribute("aria-label",title+" del tramo "+(i+1));if(type==="time")input.step="60";input.oninput=()=>{block[key]=input.value;scheduleChanged()};label.append(input);row.append(label);return label};
   field("Inicio","start","time");field("Fin","end","time");
   const typeLabel=document.createElement("label");typeLabel.textContent="Actividad";const type=document.createElement("select");type.setAttribute("aria-label","Actividad del tramo "+(i+1));
-  const choices=[["","Seleccione"],...p.tasks.map((t,j)=>["task:"+t.id,(j+1)+". "+(t.name||"Tarea sin nombre")]),["pausa","Pausa / descanso"],["otra","Otra tarea sin MMC"]];
+  const choices=[["","Seleccione"],...p.tasks.map((t,j)=>["task:"+t.id,(t.name||"Tarea sin nombre")]),["pausa","Pausa / descanso"],["otra","Otra tarea sin MMC"]];
   choices.forEach(([value,label])=>{const o=document.createElement("option");o.value=value;o.textContent=label;type.append(o)});
   const assigned=p.tasks.some(t=>t.id===block.taskId)?block.taskId:"";
   type.value=block.type==="mmc"?(assigned?"task:"+assigned:""):block.type??"";
