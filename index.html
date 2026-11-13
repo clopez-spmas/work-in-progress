@@ -14,7 +14,7 @@ const categories=[]; // Pendiente de transcripción y validación exacta de las 
 $('factors').innerHTML=factors.map((x,i)=>'<label><input type="checkbox" id="factor'+i+'"><span>'+x+'</span></label>').join('');
 $('apObjects').innerHTML=categories.map((x,i)=>'<div class="object ap"><label class="field">'+x.label+' (peso representativo: '+x.weight+' kg)<input type="number" min="0" step="1" id="ap'+i+'" value="0"></label></div>').join('');
 let objectId=0;
-function addObject(weight='',count=''){if($('objects').children.length>=6)return;const div=document.createElement('div');div.className='object';div.innerHTML='<label class="field">Peso (kg)<input class="objectWeight" type="number" min="3" step="any"></label><label class="field">N.º de objetos<input class="objectCount" type="number" min="0" step="1"></label><button type="button" class="secondary removeObject">Eliminar</button>';div.querySelector('.objectWeight').value=weight;div.querySelector('.objectCount').value=count;div.querySelector('button').onclick=()=>div.remove();$('objects').append(div);$('addObject').disabled=$('objects').children.length>=6;}
+function addObject(weight='',count=''){if($('objects').children.length>=6)return;const div=document.createElement('div');div.className='object';div.innerHTML='<label class="field">Peso (kg)<input class="objectWeight" type="number" min="3" step="any"></label><label class="field">N.º de objetos<input class="objectCount" type="number" min="0" step="1"></label><button type="button" class="secondary removeObject">Eliminar</button>';div.querySelector('.objectWeight').value=weight;div.querySelector('.objectCount').value=count;div.querySelector('button').onclick=()=>{div.remove();setStudyDirty(true);};$('objects').append(div);$('addObject').disabled=$('objects').children.length>=6;}
 $('addObject').onclick=()=>addObject();$('objects').addEventListener('click',()=>{$('addObject').disabled=$('objects').children.length>=6;});
 addObject();
 $('mode').onchange=()=>{const m=$('mode').value;$('constantFields').classList.toggle('hidden',m!=='constant');$('variableFields').classList.toggle('hidden',m!=='variable');$('apFields').classList.toggle('hidden',m!=='ap');$('results').classList.add('hidden');};
@@ -38,8 +38,41 @@ $('periods').innerHTML=r.rows.map(x=>'<tr><td>'+x.name+'</td><td>'+ (x.mass===nu
 $('results').classList.remove('hidden');}catch(e){$('results').classList.add('hidden');$('messages').innerHTML='<div class="warning"></div>';$('messages').firstElementChild.textContent=e.message;}}
 $('calculate').onclick=render;$('print').onclick=()=>window.print();
 const fields=['date','company','area','description','workers','shift','duration','weight','count','hands','distance','height'];
-$('save').onclick=()=>{const state={version:1,method:'transporte',mode:$('mode').value,fields:Object.fromEntries(fields.map(id=>[id,$(id).value])),factors:factors.map((_,i)=>$('factor'+i).checked),objects:[...$('objects').children].map(el=>({weight:el.querySelector('.objectWeight').value,count:el.querySelector('.objectCount').value})),ap:categories.map((_,i)=>$('ap'+i).value)};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));a.download='transporte-cargas.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
-$('load').onclick=()=>$('file').click();$('file').onchange=async e=>{try{const data=JSON.parse(await e.target.files[0].text());if(data.method!=='transporte'||data.version!==1||!['constant','variable','ap'].includes(data.mode))throw Error('Archivo incompatible.');$('mode').value=data.mode;$('mode').onchange();for(const id of fields)if(data.fields&&typeof data.fields[id]==='string')$(id).value=data.fields[id];factors.forEach((_,i)=>{$('factor'+i).checked=data.factors?.[i]===true});$('objects').innerHTML='';(data.objects||[]).slice(0,6).forEach(x=>addObject(x.weight,x.count));if(!$('objects').children.length)addObject();categories.forEach((_,i)=>{$('ap'+i).value=data.ap?.[i]??0});$('messages').textContent='Evaluación cargada. Pulse Calcular evaluación para obtener resultados.';}catch(err){$('messages').textContent='No se pudo cargar el archivo: '+err.message;}finally{e.target.value='';}};
+let studyDirty=false,studyFileHandle=null,studyFileName='transporte-cargas.json';
+const saveButtons=()=>[$('save'),$('wizardSave')];
+function setStudyDirty(value){studyDirty=value;saveButtons().forEach(b=>{b.title=value?'Hay cambios sin guardar':'Estudio guardado o sin cambios';});}
+function studyState(){return {version:1,method:'transporte',mode:$('mode').value,fields:Object.fromEntries(fields.map(id=>[id,$(id).value])),factors:factors.map((_,i)=>$('factor'+i).checked),objects:[...$('objects').children].map(el=>({weight:el.querySelector('.objectWeight').value,count:el.querySelector('.objectCount').value})),ap:categories.map((_,i)=>$('ap'+i).value)};}
+function studyJson(){return JSON.stringify(studyState(),null,2);}
+function normalizeFileName(name){const trimmed=String(name||'').trim();if(!trimmed||/[\\/<>:"|?*]/.test(trimmed)||trimmed==='.'||trimmed==='..')return null;return /\.json$/i.test(trimmed)?trimmed:trimmed+'.json';}
+async function saveStudy(){
+ const data=studyJson(),blob=new Blob([data],{type:'application/json'});
+ try{
+  if(typeof window.showSaveFilePicker==='function'){
+   const handle=await window.showSaveFilePicker({suggestedName:studyFileName,types:[{description:'Estudio de transporte (JSON)',accept:{'application/json':['.json']}}]});
+   const writer=await handle.createWritable();await writer.write(blob);await writer.close();
+   studyFileHandle=handle;studyFileName=handle.name||studyFileName;
+  }else{
+   const name=window.prompt('Nombre del archivo JSON que desea guardar:',studyFileName);
+   if(name===null)return;
+   const validName=normalizeFileName(name);if(!validName){alert('Introduzca un nombre de archivo válido.');return;}
+   studyFileName=validName;
+   const url=URL.createObjectURL(blob),link=document.createElement('a');
+   link.href=url;link.download=studyFileName;document.body.append(link);link.click();link.remove();
+   setTimeout(()=>URL.revokeObjectURL(url),60000);
+   $('messages').textContent='Descarga iniciada. La carpeta de destino depende de la configuración de su navegador; compruebe que el archivo se ha guardado.';
+   return; // Una descarga no confirma que el archivo haya quedado guardado.
+  }
+  setStudyDirty(studyJson()!==data);
+  $('messages').textContent=studyDirty?'Archivo guardado; hay cambios posteriores pendientes.':'Estudio guardado como '+studyFileName+'.';
+ }catch(err){if(err.name==='AbortError')return;$('messages').textContent='No se pudo guardar el estudio: '+err.message;}
+}
+$('save').onclick=saveStudy;
+document.addEventListener('input',e=>{if(e.target.matches('input,select,textarea')&&e.target.id!=='file')setStudyDirty(true);},true);
+document.addEventListener('change',e=>{if(e.target.matches('input,select,textarea')&&e.target.id!=='file')setStudyDirty(true);},true);
+$('addObject').addEventListener('click',()=>setStudyDirty(true));
+$('objects').addEventListener('click',e=>{if(e.target.closest('.removeObject'))setStudyDirty(true);});
+window.addEventListener('beforeunload',e=>{if(!studyDirty)return;e.preventDefault();e.returnValue='';});
+$('load').onclick=()=>{if(studyDirty&&!confirm('Hay cambios sin guardar. ¿Desea descartarlos y cargar otro estudio?'))return;$('file').click();};$('file').onchange=async e=>{try{const data=JSON.parse(await e.target.files[0].text());if(data.method!=='transporte'||data.version!==1||!['constant','variable','ap'].includes(data.mode))throw Error('Archivo incompatible.');$('mode').value=data.mode;$('mode').onchange();for(const id of fields)if(data.fields&&typeof data.fields[id]==='string')$(id).value=data.fields[id];factors.forEach((_,i)=>{$('factor'+i).checked=data.factors?.[i]===true});$('objects').innerHTML='';(data.objects||[]).slice(0,6).forEach(x=>addObject(x.weight,x.count));if(!$('objects').children.length)addObject();categories.forEach((_,i)=>{$('ap'+i).value=data.ap?.[i]??0});studyFileHandle=null;studyFileName=normalizeFileName(e.target.files[0].name)||'transporte-cargas.json';setStudyDirty(false);$('messages').textContent='Evaluación cargada. Pulse Calcular evaluación para obtener resultados.';}catch(err){$('messages').textContent='No se pudo cargar el archivo: '+err.message;}finally{e.target.value='';}};
 
 // Flujo de trabajo de cinco pantallas basado en la navegacion de MMC Simple.
 let wizardPage=1;
