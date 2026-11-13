@@ -60,6 +60,7 @@ input::placeholder,textarea::placeholder { color: var(--mmc-muted); opacity: 1; 
 input[readonly],input:disabled,select:disabled,textarea:disabled,.automatic-field {
   background: #edf2f7; color: #334155; border-color: var(--mmc-input-line); opacity: 1;
 }
+.mmc-shell button:disabled,.mmc-shell button:disabled:hover,
 button:disabled,button:disabled:hover {
   background: #e2e8f0; color: #52677c; border-color: #7a8da0; opacity: 1; cursor: not-allowed;
 }
