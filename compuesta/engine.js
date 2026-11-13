@@ -4,7 +4,7 @@
 const num=v=>(typeof v==='number'||typeof v==='string')&&String(v).trim()!==''&&Number.isFinite(Number(v))?Number(v):NaN;
 const round=(x,n=2)=>Math.round((x+Number.EPSILON)*10**n)/10**n;
 const populations=[{sex:'Hombres',age:'20–45 años',mass:25},{sex:'Hombres',age:'<20 o >45 años',mass:20},{sex:'Mujeres',age:'20–45 años',mass:20},{sex:'Mujeres',age:'<20 o >45 años',mass:15}];
-const bands=[{max:1,label:'TOLERABLE',color:'#00ff00',text:'#111'},{max:1.5,label:'BAJO',color:'#ffff00',text:'#111'},{max:2,label:'MODERADO',color:'#ff0000',text:'#fff'},{max:3,label:'ALTO',color:'#c00000',text:'#fff'},{max:Infinity,label:'MUY ALTO',color:'#7030a0',text:'#fff'}];
+const bands=[{max:1,label:'TOLERABLE',color:'#00ff00',text:'#111'},{max:1.5,label:'BAJO',color:'#ffff00',text:'#111'},{max:2,label:'MODERADO',color:'#ff0000',text:'#111'},{max:3,label:'ALTO',color:'#c00000',text:'#fff'},{max:Infinity,label:'MUY ALTO',color:'#7030a0',text:'#fff'}];
 const level=x=>bands.find(b=>x<=b.max);
 function fm(f,duration,height=75){
  if(!Number.isFinite(f)||f<0||!Number.isFinite(duration))return NaN;if(f>16||duration>480)return 0;

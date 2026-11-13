@@ -189,7 +189,7 @@ function factorText(r){
 const riskBands=[
  {max:1,label:"TOLERABLE",range:"IL ≤ 1",color:"#00ff00",text:"#111111",rank:0,action:"Las personas trabajadoras pueden efectuar la tarea sin peligro."},
  {max:1.5,label:"BAJO",range:"1 < IL ≤ 1,5",color:"#ffff00",text:"#111111",rank:1,action:"Preste especial atención a las condiciones de baja frecuencia/alta carga y a las posturas extremas o estáticas. Incluya todos los factores en el rediseño de tareas o puestos de trabajo y considere los esfuerzos para reducir los valores del IL < 1,0."},
- {max:2,label:"MODERADO",range:"1,5 < IL ≤ 2",color:"#ff0000",text:"#ffffff",rank:2,action:"Rediseñar las tareas y los puestos de trabajo en función de las prioridades para reducir el IL, seguido de un análisis de los resultados para confirmar la eficacia."},
+ {max:2,label:"MODERADO",range:"1,5 < IL ≤ 2",color:"#ff0000",text:"#111111",rank:2,action:"Rediseñar las tareas y los puestos de trabajo en función de las prioridades para reducir el IL, seguido de un análisis de los resultados para confirmar la eficacia."},
  {max:3,label:"ALTO",range:"2 < IL ≤ 3",color:"#c00000",text:"#ffffff",rank:3,action:"Los cambios en la tarea para reducir el IL son de alta prioridad."},
  {max:Infinity,label:"MUY ALTO",range:"IL > 3",color:"#7030a0",text:"#ffffff",rank:4,action:"Los cambios en la tarea para reducir el IL son necesarios de inmediato."}
 ];

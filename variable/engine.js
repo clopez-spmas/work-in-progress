@@ -7,7 +7,7 @@ const round=(v,n=2)=>Math.round((v+Number.EPSILON)*10**n)/10**n;
 const number=v=>(typeof v==='string'||typeof v==='number')&&String(v).trim()!==''&&Number.isFinite(Number(v))?Number(v):NaN;
 const integer=v=>Number.isInteger(number(v))&&number(v)>0;
 const populations=[{sex:'Hombres',age:'20–45 años',mass:25},{sex:'Hombres',age:'<20 o >45 años',mass:20},{sex:'Mujeres',age:'20–45 años',mass:20},{sex:'Mujeres',age:'<20 o >45 años',mass:15}];
-const bands=[{max:1,label:'TOLERABLE',color:'#00ff00',text:'#111'},{max:1.5,label:'BAJO',color:'#ffff00',text:'#111'},{max:2,label:'MODERADO',color:'#ff0000',text:'#fff'},{max:3,label:'ALTO',color:'#c00000',text:'#fff'},{max:Infinity,label:'MUY ALTO',color:'#7030a0',text:'#fff'}];
+const bands=[{max:1,label:'TOLERABLE',color:'#00ff00',text:'#111'},{max:1.5,label:'BAJO',color:'#ffff00',text:'#111'},{max:2,label:'MODERADO',color:'#ff0000',text:'#111'},{max:3,label:'ALTO',color:'#c00000',text:'#fff'},{max:Infinity,label:'MUY ALTO',color:'#7030a0',text:'#fff'}];
 function level(v){return bands.find(b=>v<=b.max)}
 function fm(frequency,category){
  const f=round(frequency),c={corta:1,media:2,larga:3}[category],table=globalThis.VLIFrequencyTable;
