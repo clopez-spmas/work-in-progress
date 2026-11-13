@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MMC Analyzer</title><link rel="stylesheet" href="css/styles.css?v=simulacion-1"><link rel="stylesheet" href="css/theme.css?v=sin-bienvenida-3"></head><body><main class="container">
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MMC Analyzer</title><link rel="stylesheet" href="css/styles.css?v=tabla-simple-1"><link rel="stylesheet" href="css/theme.css?v=sin-bienvenida-3"></head><body><main class="container">
 <section id="methods" class="access-screen" hidden><div class="access-hero"><span class="access-badge">Selección del método</span><h1>Seleccione la modalidad de MMC</h1></div><div class="access-content"><div class="method-actions"><button class="method-button" data-method="simple">MMC Simple →</button><a class="method-button" href="variable/">MMC Variable →</a><a class="method-button" href="compuesta/">MMC Compuesta →</a><a class="method-button" href="secuencial/">MMC Secuencial →</a></div><p id="methodNote" aria-live="polite"></p><div class="method-actions" style="margin-top:22px"><a id="instructionsLink" class="method-button secondary" href="docs/instrucciones-mmc.pdf" target="_blank" rel="noopener">Instrucciones de uso</a><a id="backToPrograms" class="method-button secondary" href="../">← Volver a Work in Progress</a></div></div></section>
 <section id="simple" class="mmc-shell" hidden>
 <header class="ocra-header"><div class="brand">ERGONOMIC ANALYZER · MMC SIMPLE</div><h1>MMC Simple</h1></header>
@@ -17,7 +17,7 @@
 <button id="copyIntermediate" class="toolbar-btn">Cálculos intermedios para Word</button>
 <button id="copySim" class="toolbar-btn">Simulación para Word</button>
 </section><div id="status" class="status" role="status" aria-live="polite"></div>
-<div class="mmc-screen"><div id="page1"><h1>1. Estudio y tareas de MMC Simple</h1><div class="fields two"><label>Empresa<input data-meta="empresa"></label><label>Puesto de trabajo<input data-meta="puesto"></label><label>Sección<input data-meta="seccion"></label><label>Fecha<input type="date" data-meta="fecha"></label></div><h2>Tareas independientes</h2><p>Puede registrar hasta 50 tareas.</p><div class="actions"><button id="addTask">+ Añadir tarea</button><button id="goSchedule" class="secondary" type="button">Horario</button><span id="taskCount"></span></div><div id="taskList"></div></div>
+<div class="mmc-screen"><div id="page1"><h1>1. Estudio y tareas de MMC Simple</h1><div class="fields two"><label>Empresa<input data-meta="empresa"></label><label>Puesto de trabajo<input data-meta="puesto"></label><label>Sección<input data-meta="seccion"></label><label>Fecha<input type="date" data-meta="fecha"></label></div><h2>Tareas del puesto</h2><p>Cada tarea se calcula de forma independiente. Máximo 50 tareas.</p><div class="actions"><button id="addTask">+ Añadir tarea</button><button id="goSchedule" class="secondary" type="button">Horario</button><span id="taskCount"></span></div><div id="taskList"></div></div>
 <div id="page2" hidden>
 <h1>2. Horario común del estudio</h1>
 <label class="task-picker" hidden>Tarea seleccionada<select id="scheduleTask"></select></label>
@@ -48,5 +48,5 @@
 <section class="sim-section"><h2>Resumen de cambios simulados</h2><div id="simChanges"></div></section>
 <div class="actions"><button id="recalcSim">Recalcular simulación</button><button id="resetSim" class="secondary">Restablecer valores originales</button><button id="copySimReport" class="secondary">Copiar comparación para Word</button></div>
 </div></section></div></section>
-</main><script src="js/schedule.js?v=textos-1"></script><script src="js/app.js?v=horario-unico-3"></script><script src="js/instructions.js?v=1"></script></body></html>
+</main><script src="js/schedule.js?v=textos-1"></script><script src="js/app.js?v=tabla-simple-1"></script><script src="js/instructions.js?v=1"></script></body></html>
 
