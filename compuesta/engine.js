@@ -24,7 +24,7 @@ function production(d){const problems=[],rows=d?.subtasks,workers=num(d?.workers
  const weight=num(s.weight),objects=num(s.objects),lifts=num(s.lifts),people=num(s.people);
  if(!String(s.name||'').trim())problems.push('Subtarea '+(i+1)+': indique su nombre.');
  if(!(weight>=3)||!Number.isInteger(objects)||objects<1||!Number.isInteger(lifts)||lifts<1)problems.push('Subtarea '+(i+1)+': peso ≥3 kg, objetos y levantamientos por objeto enteros positivos.');
- if(![1,2].includes(people))problems.push('Subtarea '+(i+1)+': indique 1 o 2 personas levantando juntas, como admite el Excel.');else if(Number.isInteger(workers)&&people>workers)problems.push('Subtarea '+(i+1)+': las personas que levantan juntas superan el total de trabajadores.');
+ if(![1,2].includes(people))problems.push('Subtarea '+(i+1)+': indique 1 o 2 personas levantando juntas.');else if(Number.isInteger(workers)&&people>workers)problems.push('Subtarea '+(i+1)+': las personas que levantan juntas superan el total de trabajadores.');
  if(weight>=3&&objects>0&&lifts>0){count+=objects*lifts;mass+=weight*objects*lifts;if([1,2].includes(people))participations+=objects*lifts*people;}
  active.push({...s,index:i,weight,objects,lifts,people});});if(!active.length)problems.push('Complete al menos una subtarea.');
  return{problems,active,count,mass,perWorkerMass:workers>0?mass/workers:null,participations:workers>0?participations/workers:null};
@@ -33,7 +33,7 @@ function calculate(d){if(!d||typeof d!=='object')return{status:'pending',problem
  if(problems.length)return{status:'pending',problems,production:p,organization:o};const subtasks=[];
  for(const s of p.active){const prefix='Subtarea '+(s.index+1)+': ',v=num(s.origin),vf=num(s.destination),h=num(s.horizontal),a=num(s.asymmetry),f=num(s.frequency),hands=num(s.hands);
  if(![v,vf,h,a,f].every(Number.isFinite)||h<0||a<0||f<0)problems.push(prefix+'complete alturas, alcance, asimetría y frecuencia no negativa.');
- if(Number.isFinite(f)&&Math.abs(f*100-Math.round(f*100))>1e-8)problems.push(prefix+'la frecuencia debe tener como máximo dos decimales para la tabla del Excel.');
+ if(Number.isFinite(f)&&Math.abs(f*100-Math.round(f*100))>1e-8)problems.push(prefix+'la frecuencia debe tener como máximo dos decimales.');
  if(!['B','R','M'].includes(s.grip)||![1,2].includes(hands)||!['S','N'].includes(s.heavy))problems.push(prefix+'seleccione agarre, manos y tareas adicionales exigentes.');
  if(v<0||v>175||vf<0||vf>175||Math.abs(v-vf)>175||h>63||a>135)critical.push(prefix+'geometría crítica.');
  if(problems.length||critical.length)continue;
@@ -43,7 +43,7 @@ function calculate(d){if(!d||typeof d!=='object')return{status:'pending',problem
  subtasks.push({...s,frequency:f,fili,individual,factors,displacement:Math.abs(v-vf)});
  }
  const expectedFrequency=p.count/num(d.workers)/o.net,totalFrequency=subtasks.reduce((s,t)=>s+t.frequency,0);
- if(!critical.length&&Math.abs(round(totalFrequency)-round(expectedFrequency))>.100000001)problems.push('Las frecuencias de las subtareas no coinciden con la producción y el horario (tolerancia del Excel: 0,10 lev/min).');
+ if(!critical.length&&Math.abs(round(totalFrequency)-round(expectedFrequency))>.100000001)problems.push('Las frecuencias de las subtareas no coinciden con la producción y el horario (diferencia máxima admitida: 0,10 lev/min).');
  if(problems.length)return{status:'pending',problems,production:p,organization:o};if(critical.length)return{status:'critical',problems:critical,production:p,organization:o};
  // AY/BG: extract maxima one at a time, preserving first MATCH for ties.
  const sorted=[...subtasks].sort((a,b)=>b.individual-a.individual||a.index-b.index);let cumulative=0,previousFM=1,base=sorted[0].individual;const trace=[];

@@ -27,7 +27,7 @@ function frequencyNote(r){
  if(!r.frequency||r.problems)return "";
  const factor=v=>v.toLocaleString("es-ES",{maximumFractionDigits:6});
  const detail=r.positions?.destination?"FM origen: "+factor(r.positions.origin.vals.FM)+"; FM destino: "+factor(r.positions.destination.vals.FM):"FM: "+factor(r.vals.FM);
- return "Frecuencia: "+factor(r.frequency.value)+" lev/min. "+detail+" ("+r.frequency.method+"). Fuente exclusiva: tabla del Excel LI, rotulada «área inferior a 75 cm».";
+ return "Frecuencia: "+factor(r.frequency.value)+" lev/min. "+detail+" ("+r.frequency.method+"). Fuente exclusiva: tabla de frecuencia, rotulada «área inferior a 75 cm».";
 
 }
 const fmt=v=>Number.isFinite(v)?v.toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2}):"—";
@@ -114,9 +114,9 @@ function couplingMultiplier(quality,height){
 }
 function couplingNote(r){
  if(r.problems||!["bueno","malo"].includes(r.coupling))return "";
- return "Agarre "+r.coupling+". CM = "+fmt(r.vals.CM)+" (Excel LI).";
+ return "Agarre "+r.coupling+". CM = "+fmt(r.vals.CM)+".";
 }
-function geometryNote(r){return r.problems?"":"VM, HM, DM y AM: coeficientes tabulados del Excel LI e interpolación lineal entre puntos numéricos. Extremos acordados para interpolar: VM=0 a V=175 cm, HM=0 a H=63 cm y DM=0 a D=175 cm; por encima de cada límite el factor es cero. Sin dos extremos no se extrapola. Se mantienen los mínimos de aplicación de HM y DM.";}
+function geometryNote(r){return r.problems?"":"VM, HM, DM y AM: coeficientes tabulados e interpolación lineal entre puntos numéricos. Extremos acordados para interpolar: VM=0 a V=175 cm, HM=0 a H=63 cm y DM=0 a D=175 cm; por encima de cada límite el factor es cero. Sin dos extremos no se extrapola. Se mantienen los mínimos de aplicación de HM y DM.";}
 function calculationNote(r){return[geometryNote(r),durationNote(r),frequencyNote(r),couplingNote(r),positionNote(r)].filter(Boolean).join(" ")}
 function updateDurationFeedback(x){
  const out=$("durationFeedback");if(!out)return;
@@ -129,7 +129,7 @@ function calc(x){
  const problems=[...distance.problems];
  for(const k of ["peso","horizontal","asimetria","agarre","unaMano","dosPersonas"])if(x[k]===undefined||x[k]===null||String(x[k]).trim()==="")problems.push("Falta: "+k);
  problems.push(...duration.problems);
- if(x.agarre!==undefined&&x.agarre!==null&&String(x.agarre).trim()!==""&&!["bueno","malo"].includes(x.agarre))problems.push("Agarre no admitido en el Excel LI: seleccione Bueno o Malo.");
+ if(x.agarre!==undefined&&x.agarre!==null&&String(x.agarre).trim()!==""&&!["bueno","malo"].includes(x.agarre))problems.push("Calidad del agarre no válida: seleccione Bueno o Malo.");
  if(Number.isFinite(Number(x.horizontal))&&Number(x.horizontal)<20)problems.push("Distancia horizontal en origen inferior al mínimo de 20 cm del manual.");
  if(x.controlDestino==="si"){
   const present=v=>v!==undefined&&v!==null&&String(v).trim()!=="";
@@ -172,7 +172,7 @@ function calc(x){
  // En caso de igualdad se conserva origen; ambos resultados permanecen disponibles.
  const governingPosition=destination&&destination.product<origin.product?"destination":"origin";
  const selected=governingPosition==="destination"?destination:origin;
- const frequencyValue=Number(x.frecuencia),frequency={value:frequencyValue,method:frequencyValue<=.2?"tramo de baja frecuencia del Excel LI":freq.includes(frequencyValue)?"valor tabulado":"interpolación entre filas"};
+ const frequencyValue=Number(x.frecuencia),frequency={value:frequencyValue,method:frequencyValue<=.2?"tramo de baja frecuencia":freq.includes(frequencyValue)?"valor tabulado":"interpolación entre filas"};
  return{vals:selected.vals,weightTotal:w,weightPerPerson:effective,indices:selected.indices,positions:{origin,destination},governingPosition,duration,frequency,coupling:x.agarre,displacement:distance.value};
 }
 function positionNote(r){

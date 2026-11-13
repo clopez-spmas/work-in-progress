@@ -33,7 +33,7 @@ function analyze(schedule){
  if(cursor<end)problems.push("Complete los tramos hasta el fin de la jornada.");
  const totalMMC=segments.filter(b=>b.type==="mmc").reduce((a,b)=>a+b.end-b.start,0);
  if(!totalMMC)problems.push("Registre al menos un tramo de manipulación de cargas de la tarea evaluada.");
- if(totalMMC>720)problems.push("La manipulación supera 12 horas: fuera de las categorías de extensión temporal del Excel LI.");
+ if(totalMMC>720)problems.push("La manipulación supera las 12 horas contempladas en las categorías de extensión temporal.");
  if(problems.length)return{problems:[...new Set(problems)]};
  const groups=[];
  const emit=(from,to,rest,cat)=>groups.push({start:from,end:to,minutes:to-from,recoveryMinutes:rest,category:cat});
