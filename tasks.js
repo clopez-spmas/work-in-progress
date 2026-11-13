@@ -1,0 +1,49 @@
+'use strict';
+(()=>{
+const $=id=>document.getElementById(id);
+const taskFields=['description','workers','shift','duration','weight','count','hands','distance','height'];
+const emptyTask=()=>({id:crypto.randomUUID?.()||String(Date.now()+Math.random()),name:'',mode:'constant',fields:{},factors:[],objects:[{weight:'',count:''}],ap:[]});
+let tasks=[],selected=null,switching=false,revision=0,savedRevision=0;
+const taskPanel=document.createElement('div');
+taskPanel.innerHTML='<h3>Tareas independientes</h3><p class="muted">Puede registrar hasta 50 tareas. Cada tarea conserva sus propios datos y resultados en un único estudio.</p><div class="actions"><button type="button" id="taskAdd">+ Añadir tarea</button><span id="taskCount"></span></div><div id="taskList" class="task-list"></div>';
+$('wizardPage1').querySelector('.panel').append(taskPanel);
+const selector=document.createElement('label');selector.className='field task-selector';selector.innerHTML='Tarea seleccionada<select id="taskSelect"></select>';
+for(let i=2;i<=5;i++)$('wizardPage'+i).querySelector('.panel').insertBefore(selector.cloneNode(true),$('wizardPage'+i).querySelector('.panel').children[1]);
+const style=document.createElement('style');style.textContent='.task-list{display:grid;gap:10px;margin-top:18px}.task-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:1px solid #d9e2eb;border-radius:9px;padding:12px;background:#f7fafd}.task-row .task-name{flex:1;min-width:180px}.task-row.active{border-color:#245982;background:#edf4fa}.task-row button{padding:9px 12px}.task-selector{margin:0 0 20px;max-width:480px}.task-list input{min-width:170px}@media print{.task-list,.task-selector{display:none}}';document.head.append(style);
+const pickers=[...document.querySelectorAll('#taskSelect')];
+function snapshot(){return{mode:$('mode').value,fields:Object.fromEntries(taskFields.map(id=>[id,$(id).value])),factors:factors.map((_,i)=>$('factor'+i).checked),objects:[...$('objects').children].map(el=>({weight:el.querySelector('.objectWeight').value,count:el.querySelector('.objectCount').value})),ap:categories.map((_,i)=>$('ap'+i).value)};}
+function apply(t){switching=true;$('mode').value=t.mode||'constant';$('mode').onchange();taskFields.forEach(id=>$(id).value=t.fields?.[id]??'');factors.forEach((_,i)=>$('factor'+i).checked=t.factors?.[i]===true);$('objects').innerHTML='';(t.objects||[]).slice(0,6).forEach(o=>addObject(o.weight,o.count));if(!$('objects').children.length)addObject();categories.forEach((_,i)=>$('ap'+i).value=t.ap?.[i]??'0');$('results').classList.add('hidden');switching=false;}
+function store(){if(!selected)return;const t=tasks.find(x=>x.id===selected);if(t)Object.assign(t,snapshot());}
+function mark(){if(switching)return;revision++;setStudyDirty(true);}
+function draw(){const list=$('taskList');list.replaceChildren();tasks.forEach((t,i)=>{const row=document.createElement('div');row.className='task-row'+(t.id===selected?' active':'');const input=document.createElement('input');input.className='task-name';input.value=t.name;input.placeholder='Nombre de la tarea '+(i+1);input.setAttribute('aria-label','Nombre de la tarea '+(i+1));input.addEventListener('input',()=>{t.name=input.value;updatePickers();mark()});const choose=document.createElement('button');choose.type='button';choose.textContent=t.id===selected?'Seleccionada':'Seleccionar';choose.className=t.id===selected?'':'secondary';choose.onclick=()=>select(t.id);const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent='Eliminar';remove.onclick=()=>{if(!confirm('¿Eliminar esta tarea del estudio?'))return;store();tasks=tasks.filter(x=>x.id!==t.id);if(selected===t.id){selected=tasks[0]?.id||null;if(selected)apply(tasks[0]);else clearTaskForm()}mark();draw()};row.append(input,choose,remove);list.append(row)});$('taskCount').textContent=tasks.length+' / 50';$('taskAdd').disabled=tasks.length>=50;updatePickers();}
+function updatePickers(){pickers.forEach(p=>{p.replaceChildren();tasks.forEach((t,i)=>{const o=document.createElement('option');o.value=t.id;o.textContent=(i+1)+'. '+(t.name.trim()||'Tarea sin nombre');p.append(o)});p.value=selected||'';p.disabled=!tasks.length;});}
+function clearTaskForm(){apply(emptyTask())}
+function select(id){if(id===selected)return;store();selected=id;const t=tasks.find(x=>x.id===id);if(t)apply(t);draw();}
+pickers.forEach(p=>p.addEventListener('change',()=>select(p.value)));
+$('taskAdd').onclick=()=>{if(tasks.length>=50)return;store();const t=emptyTask();t.name='Tarea '+(tasks.length+1);tasks.push(t);selected=t.id;apply(t);mark();draw()};
+document.addEventListener('input',e=>{if(e.target.closest('#taskList')||e.target.id==='file')return;if(e.target.closest('.wizard-page')&&selected)mark()},true);
+document.addEventListener('change',e=>{if(e.target.closest('#taskList')||e.target.id==='file')return;if(e.target.closest('.wizard-page')&&selected)mark()},true);
+const oldAdd=addObject;
+$('addObject').addEventListener('click',()=>{if(selected)mark()});
+$('objects').addEventListener('click',e=>{if(e.target.closest('.removeObject')&&selected)mark()});
+const oldEvaluate=$('calculate').onclick;
+$('calculate').onclick=()=>{if(!selected){$('messages').textContent='Añada y seleccione una tarea antes de calcular.';return;}store();oldEvaluate();};
+function fullStudy(){store();return{version:2,method:'transporte',meta:Object.fromEntries(['date','company','area'].map(id=>[id,$(id).value])),tasks:tasks.map(t=>structuredClone(t)),selectedTaskId:selected};}
+function safeName(n){const x=String(n||'').trim();return !x||/[\\/<>:"|?*]/.test(x)||x==='.'||x==='..'?null:/\.json$/i.test(x)?x:x+'.json'}
+let fileName='transporte-cargas.json';
+$('save').onclick=async()=>{const payload=JSON.stringify(fullStudy(),null,2),blob=new Blob([payload],{type:'application/json'}),savedAt=revision;
+try{if(typeof window.showSaveFilePicker==='function'){const handle=await window.showSaveFilePicker({suggestedName:fileName,types:[{description:'Estudio de transporte JSON',accept:{'application/json':['.json']}}]});const writer=await handle.createWritable();await writer.write(blob);await writer.close();fileName=handle.name||fileName;savedRevision=savedAt;setStudyDirty(revision!==savedRevision);$('messages').textContent='Estudio guardado: '+fileName;}
+else{const chosen=prompt('Nombre del archivo JSON:',fileName);if(chosen===null)return;const valid=safeName(chosen);if(!valid){alert('Nombre de archivo no válido');return;}fileName=valid;const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=fileName;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);$('messages').textContent='Descarga iniciada. Compruebe que el archivo se ha guardado.';}}
+catch(e){if(e.name!=='AbortError')$('messages').textContent='No se pudo guardar: '+e.message;}};
+$('load').onclick=()=>{if(studyDirty&&!confirm('Hay cambios sin guardar. ¿Descartarlos y cargar otro estudio?'))return;$('file').click()};
+$('file').onchange=async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=JSON.parse(await file.text());if(data.method!=='transporte')throw Error('Archivo incompatible');
+let imported;
+if(data.version===2){if(!Array.isArray(data.tasks)||data.tasks.length>50||!data.tasks.every(t=>t&&typeof t.id==='string'&&typeof t.name==='string'&&['constant','variable','ap'].includes(t.mode)))throw Error('Lista de tareas no válida');imported=data.tasks.map(t=>({id:t.id,name:t.name,mode:t.mode,fields:t.fields||{},factors:t.factors||[],objects:t.objects||[],ap:t.ap||[]}));}
+else if(data.version===1){imported=[{id:crypto.randomUUID?.()||String(Date.now()),name:'Tarea 1',mode:data.mode,fields:data.fields||{},factors:data.factors||[],objects:data.objects||[],ap:data.ap||[]}];}
+else throw Error('Versión no compatible');
+switching=true;['date','company','area'].forEach(id=>$(id).value=data.version===2?(data.meta?.[id]??''):(data.fields?.[id]??''));switching=false;
+tasks=imported;selected=tasks.find(t=>t.id===data.selectedTaskId)?.id||tasks[0]?.id||null;if(selected)apply(tasks.find(t=>t.id===selected));else clearTaskForm();draw();fileName=safeName(file.name)||'transporte-cargas.json';revision++;savedRevision=revision;setStudyDirty(false);$('messages').textContent='Estudio cargado: '+tasks.length+' tareas.';}catch(err){$('messages').textContent='Error al cargar: '+err.message}finally{e.target.value=''}};
+$('wizardSave').onclick=()=>$('save').click();$('wizardLoad').onclick=()=>$('load').click();
+const originalShow=showWizardPage;showWizardPage=function(page){if(selected)store();originalShow(page)};
+draw();
+})();
