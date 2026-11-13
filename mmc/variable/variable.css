@@ -3,3 +3,16 @@
 .geometry-lines{min-width:1000px}.geometry-lines input{min-width:150px}.geometry-lines select{min-width:155px}.geometry-lines th{white-space:normal}.geometry-lines td{vertical-align:top}
 
 .schedule-editor .check-field{display:flex;flex-direction:row;align-items:center;gap:8px}.schedule-editor .check-field input{width:auto}.schedule-row{grid-template-columns:minmax(200px,1.5fr) minmax(110px,1fr) minmax(110px,1fr) minmax(130px,1.3fr);align-items:end}.schedule-row>span{align-self:center}.schedule-row>button{justify-self:end;grid-column:-2/-1}@media(max-width:760px){.schedule-row{grid-template-columns:1fr 1fr}.schedule-row>label:first-child{grid-column:1/-1}.schedule-row>button{grid-column:2}}
+
+/* Resumen de tareas inspirado en Empuje y Traccion */
+.vli-overview{width:100%;border-collapse:collapse;min-width:840px;font-size:0.95rem}
+.vli-overview th{background:#f3f6f9;color:#07518d;text-align:left;padding:12px 10px;border-bottom:1px solid #d5e2ed}
+.vli-overview td{padding:12px 10px;border-bottom:1px solid #dbe5ee;vertical-align:middle}
+.vli-overview td:nth-child(2){min-width:190px;width:28%}
+.vli-overview input[data-task-name]{width:100%;min-width:140px;font-weight:600}
+.vli-risk-badge{border-radius:7px;padding:8px 10px;margin:3px 0;display:grid;grid-template-columns:1fr auto;gap:3px 10px;min-width:150px;font-size:0.82rem}
+.vli-risk-badge small{grid-column:1/-1;font-size:0.8rem}
+.vli-pending{color:#66788b;font-size:0.85rem}
+.vli-overview-actions{display:flex;gap:6px;flex-wrap:wrap;min-width:160px}
+.vli-overview-actions button{padding:9px 12px}
+.vli-overview-actions .vli-danger{color:#b42318;border-color:#e66d66}
