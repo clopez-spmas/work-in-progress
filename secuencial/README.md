@@ -1,50 +1,39 @@
 # MMC secuencial
 
-Módulo aislado en `secuencial/`. Solo se modifica el enlace de acceso a Secuencial en el selector común. No se cambian los archivos, cálculos, estilos ni datos de MMC simple, variable o compuesta. Se reutilizan sin modificar los estilos generales y la conversión común de horas.
+Módulo aislado de rotación entre tareas simples, compuestas y variables. Todos sus cambios están en `secuencial/` y en sus pruebas. No cambia archivos, cálculos ni formatos de guardado de los otros módulos.
 
-## Documentación exclusiva
+## Importación
 
-Adjuntos del 12 de noviembre de 2026:
+Hasta 50 tareas por rotación y 200 tramos. Se importan los JSON de MMC Analyzer de los módulos `simple`, `compuesta` y `variable`. Un archivo puede contener varias tareas: el selector muestra cada una por separado y permite importar solo las elegidas. También permite seleccionar las condiciones originales o una simulación guardada en el archivo de origen.
 
-- `OneDrive_1_12-11-2026.zip`: `1.ERGOepm SLI (9-3-12).xlsm`, `2.ERGOepm SLI-CLI (20-1-22).xlsm`, `2.ERGOepm SLI-VLI (20-1-22).xlsm`, `CÁLCULO DEL ÍNDICE DE RIESGO SECUENCIAL ILS.pdf`.
-- `CONDICIONES ERGONOMICAS_V26_SEPTIEMBRE_2026 (3)(3).docx`.
+Cada tarea importada recibe un identificador local nuevo y conserva el módulo, archivo, identificador de origen y una copia de sus condiciones. Identificadores coincidentes en archivos distintos no mezclan las tareas. Las cantidades y geometrías quedan guardadas dentro del estudio secuencial, sin depender de conservar el archivo original abierto.
 
-No se ejecutan macros ni enlaces externos. No se incorporan metodologías, tablas o criterios ajenos a estos adjuntos.
+Las flechas ordenan la lista. Se pueden crear tramos en ese orden y aplicar el orden a un horario que tenga un tramo de levantamiento por tarea. La pantalla de horario permite elegir cualquier tarea en cada tramo y repetir tareas: una lista de origen 1,2,3 puede dar lugar a una secuencia 2,1,3 o 2,1,2,3. Los tiempos se obtienen del inicio y fin de jornada y de cada tramo, con validación de huecos, solapamientos y medianoche.
 
-## Procedimiento y alcance
+La importación y actualización son transacciones: se valida toda la selección y el límite de 50 antes de cambiar el estudio. Actualizar una tarea conserva su identificador de rotación, nombre y asignaciones temporales. Los archivos incorrectos, cancelaciones y selecciones que superen el límite no producen importaciones parciales.
 
-Se implementa el flujo del PDF: registrar la rotación, evaluar cada tarea en los Excel secuenciales de la documentación e incorporar sus resultados parciales al agregador ILS. La página no recalcula los pesos y geometrías de las tareas ni toma automáticamente el índice final de los otros módulos. Ese único índice no reemplaza los cuatro resultados parciales que necesita el agregador.
+## Cálculos automáticos
 
-Entrada de cada tarea: nombre, tipo simple/compuesta/variable, resultado numérico o crítico y los cuatro índices de referencia de 25 kg: intrínseco (H), corta (K), media (L), larga (M). Se admiten hasta 8 tareas: aunque el catálogo de la hoja permite nombrar hasta 12, el resultado T155 depende únicamente de las 8 filas 134–148.
+Se usan las condiciones físicas y de producción, no el índice final guardado o mostrado en el módulo de origen. Se recalculan automáticamente el índice intrínseco y los índices para duración corta, media y larga; no hay entrada manual ni confirmaciones de estos índices.
 
-Se puede pegar F:S desde los resúmenes: fila 41 de SLI-CLI; **fila 106 de SLI-VLI**. La guía menciona genéricamente 41/42, pero el resumen de la versión VLI adjunta está realmente en 105/106. Se usa el contenido efectivo del archivo. La importación comprueba los cuatro índices y que O (minutos de esa tarea) coincida con el horario; no cambia el estudio si falla una comprobación. La situación crítica se introduce expresamente mediante el selector.
+- Variables y compuestas: se conservan objetos, levantamientos por objeto y trabajadores. La frecuencia se obtiene con los minutos asignados a esa tarea en la rotación. Repetir una tarea distribuye esas mismas cantidades entre todos sus tramos; no multiplica automáticamente la producción.
+- Simples: se conserva la frecuencia registrada porque el archivo no contiene una producción por objetos. Se representa el levantamiento constante mediante una única subtarea. Si hay control significativo en destino, se evalúan ambos extremos y se conserva el resultado más desfavorable de cada duración.
+- La duración intrínseca de una tarea se obtiene del mayor tramo que tiene asignado, según la documentación secuencial proporcionada. La duración de la secuencia incorpora la acumulación de actividad y recuperación.
+- Se implementan las fórmulas de resultados parciales de la documentación facilitada, incluidas las diferencias entre la agregación directa y las seis categorías FILI, los empates, las correcciones y las selecciones por altura. Las tablas de frecuencia se reconstruyen con 20/21 nodos, contrastados con todos sus valores originales.
+- El agregador se generaliza de forma explícita a 50 términos: máximo intrínseco + (máximo a duración de secuencia − máximo intrínseco) × suma de índices a duración de secuencia ponderados por minutos/480, dividida por el máximo a duración de secuencia. Las tareas posteriores a la octava y hasta la quincuagésima participan en todos los máximos y en la suma. Se conserva el denominador temporal 480.
+- Las cuatro poblaciones y sus masas de referencia 25/20/20/15, niveles y colores siguen la documentación proporcionada. El nivel se determina antes del redondeo a dos decimales.
+- Una condición crítica se propaga como situación crítica; los datos incompletos permanecen pendientes. Un índice de larga duración no disponible no bloquea una rotación cuya duración solo requiere el de corta duración.
 
-El horario incluye inicio/fin de jornada y de cada tramo; admite medianoche. Se exige cobertura completa, sin huecos ni solapamientos. Cada tramo de MMC se vincula a una tarea. Los minutos y O/Q se calculan automáticamente. Los descansos de hasta 10 minutos se incluyen en el tramo de levantamiento conforme a la ayuda del Excel; si se registran separadamente, se solicita corregir el horario. La distribución se adapta a las 81 celdas B43:CD43, con hasta 20 bloques de levantamiento y de empuje. El botón de copia reproduce las dos filas B80:CD81 para pegar como valores en B15 de ESQUEMA de los Excel parciales; los nombres deben coincidir con E6.
+`partial-models.js` conserva los grafos de cálculo parcial y las tablas de la documentación suministrada. `partials.js` los evalúa con entradas validadas, sin código dinámico ni conexiones externas. `input-cli.js` e `input-vli.js` son copias aisladas para preparar y validar los datos importados; no modifican ni ejecutan los controladores de los otros módulos. Una caché de resultados evita repetir cálculos de tareas cuyas condiciones y tiempos no han cambiado.
 
-Cambiar horarios, asignaciones, tareas o tipos invalida la confirmación de los resultados parciales. Es necesario actualizarlos y confirmar que corresponden al horario actual, también en la simulación. Esto evita presentar como recalculados unos índices que provienen de otra distribución temporal.
+## Guardado y simulación
 
-## Cálculo
+Formato secuencial versión 2. Guarda condiciones importadas, procedencia, tareas, orden, horario y simulación. Acepta los estudios secuenciales anteriores, conservando sus tareas y horarios; las tareas sin condiciones físicas deben actualizarse desde sus JSON antes de calcular. No se usan sus antiguos índices manuales como sustitutos de las condiciones faltantes.
 
-`workbook-model.js` conserva el grafo de las fórmulas originales de `ILS!B69` y `ILS!T155`. `engine.js` evalúa ese grafo con entradas validadas, sin `eval`, macros ni accesos externos.
+La simulación conserva las condiciones originales. Permite cambiar secuencias, tareas y tiempos, e importar condiciones actualizadas sobre una tarea concreta. El resumen muestra cambios efectivos de condiciones y horario; omite marcas internas y metadatos de archivo. Se mantienen las salidas para Word y el aviso de cambios pendientes al cerrar o volver al inicio.
 
-- La duración se obtiene de las fórmulas 45–58 y B69, incluidas sus condiciones de recuperación y acumulación. Se conserva que la comprobación efectiva de las fórmulas es de períodos <5 minutos, aunque la etiqueta de B69 indica <10. No se reemplaza este criterio por el de otro módulo.
-- Las filas 134,136,...148 reciben H/K/L/M y los minutos O de cada tarea. Q = O/480: se conserva **480**, no se sustituye por la jornada introducida ni por los minutos totales de MMC.
-- AJ selecciona K/L/M según B69. CY163 = máximo H; CZ163 = máximo AJ; DH163 = suma de AJ×Q; DH165 = DH163/CZ163; T155 = CY163 + (CZ163−CY163)×DH165.
-- Se siguen literalmente los empates y las fórmulas, sin ordenar arbitrariamente las tareas ni omitir la contribución del máximo a la suma ponderada.
-- El caso sin denominador numérico válido permanece pendiente; no se inventa un cero.
-- ILS de los otros grupos = base×25/20, base×25/20 y base×25/15 según el PDF. Edades 20–45 / <20 o >45, bandas y colores del DOCX. Se clasifica antes de redondear a dos decimales, como en la interfaz establecida de los módulos.
-- Un resultado parcial expresamente crítico genera situación crítica: >3 / MUY ALTO para todos los grupos, conforme al DOCX. No es un índice numérico calculado.
-
-## Interfaz y persistencia
-
-Cinco pantallas: estudio/tareas, horario, resultados parciales, informe y simulación. Sin evaluador, valores de ejemplo, Guardar como ni exportación de cálculos intermedios. La simulación es independiente y el resumen incluye solo cambios efectivos, sin marcas internas de confirmación. JSON específico `module:"secuencial"`; se rechazan los archivos de los otros módulos. Se conservan original y simulación, horas, resultados parciales y confirmaciones.
-
-Guardar estudio, cargar, copiar resultados y simulación para Word. Aviso de cambios pendientes al cerrar mediante el diálogo nativo del navegador; al volver al inicio ofrece guardar, continuar o salir sin guardar. La salida se cancela si el guardado falla o se cancela. El navegador no permite imponer un guardado al cerrar.
-
-## Verificación
+## Comprobaciones
 
 `node tests/secuencial.cjs`
 
-56 casos sintéticos contrastados con una evaluación independiente en Python de las fórmulas originales: las tres categorías de duración, recuperación, rotación, repetición de tarea, empuje, medianoche y hasta 8 tareas. Se comparan la duración y T155. Se comprueban también entradas en blanco, datos incompletos, críticas, escalado de población, límites de riesgo, aislamiento de simulación, cambios de horario, formato JSON, guardado/recarga, importación de filas y aviso de salida. Los casos están solo en `tests/fixtures/ils-excel.json`, nunca se cargan en la página.
-
-La correspondencia con fórmulas no equivale a una ejecución nativa de Microsoft Excel. El módulo cubre la agregación secuencial según la guía, no sustituye los Excel de evaluación parcial.
+Incluye 56 comparaciones de categoría temporal y agregación con casos de referencia de la documentación; 15 casos y 60 comparaciones de cálculo parcial frente a una evaluación independiente de las fórmulas originales; los tres formatos JSON; varios registros por archivo; orden 2→1→3; 50 tareas con participación de la última; límites e importación atómica; frecuencias por tiempo asignado; guardado y recarga de condiciones y simulación; recuperación de formato anterior; aviso de salida; ausencia de referencias a herramientas de cálculo externas en la interfaz.
