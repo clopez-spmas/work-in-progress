@@ -1,15 +1,9 @@
-# Repositorio de desarrollo de Ergonomic Analyzer
+# work-in-progress
 
-Repositorio de desarrollo y pruebas para nuevos programas de Ergonomic Analyzer.
+Repositorio temporal para desarrollar nuevos programas de Ergonomic Analyzer.
 
-Los nuevos programas se desarrollan, prueban y validan aquí antes de integrarse en el repositorio definitivo `Ergonomic-analyzer`.
+Los programas terminados se incorporan como carpetas independientes al repositorio principal `clopez-spmas/Ergonomic-analyzer`. Antes de reutilizar este repositorio, se comprueba que la copia definitiva conserva todos los archivos.
 
-## Flujo de trabajo
+**Estado:** disponible para iniciar el desarrollo de un nuevo programa.
 
-1. Desarrollar el nuevo programa en este repositorio.
-2. Realizar las pruebas y correcciones necesarias sin modificar el repositorio definitivo.
-3. Validar el funcionamiento del programa.
-4. Integrar el programa terminado como subprograma independiente dentro de `Ergonomic-analyzer`.
-5. Comprobar la navegación, documentación, guardado/carga, resultados y demás funciones tras la integración.
-
-Este repositorio es únicamente un entorno de desarrollo y pruebas.
+El programa MMC se conserva en `clopez-spmas/Ergonomic-analyzer/mmc/`. La version anterior de este repositorio permanece recuperable mediante el historial de Git (commit `8e5d55ba62fe76f7edcfa1433d871d98ba814ab0`).
