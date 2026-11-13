@@ -37,7 +37,28 @@ function changed(){dirty=true;$("status").textContent="Cambios sin guardar"}func
 const temporalFields=["duracion","recuperacion","grupoDuracion","extension"];
 function nav(n){page=Math.min(5,Math.max(1,n));for(let i=1;i<=5;i++)$("page"+i).hidden=i!==page;$("pageNum").textContent=page;$("prev").disabled=page===1;$("next").disabled=page===5;if(page===2)renderSchedule();if(page===3)inputs();if(page===4)results();if(page===5){selector();sim()}$("simulation").hidden=page!==5||!p.tasks.length;scrollTo(0,0)}
 function selector(){if(!p.tasks.some(t=>t.id===sel))sel=p.tasks[0]?.id||"";for(const id of ["taskSelect","scheduleTask","simTask"]){const e=$(id),previous=e.value;e.replaceChildren();p.tasks.forEach((t,i)=>{const o=document.createElement("option");o.value=t.id;o.textContent=(i+1)+". "+(t.name||"Sin nombre");e.append(o)});e.value=id==="simTask"&&p.tasks.some(t=>t.id===previous)?previous:sel}}
-function render(){const list=$("taskList");list.replaceChildren();p.tasks.forEach((t,i)=>{const row=document.createElement("div");row.className="task";const label=document.createElement("span");label.textContent="Tarea "+(i+1);const inp=document.createElement("input");inp.value=t.name;inp.maxLength=150;inp.placeholder="Nombre";inp.oninput=()=>{t.name=inp.value;selector();changed()};const edit=document.createElement("button");edit.className="secondary";edit.textContent="Datos";edit.onclick=()=>{sel=t.id;nav(3)};const del=document.createElement("button");del.className="secondary";del.textContent="Eliminar";del.onclick=()=>{if(confirm("¿Eliminar tarea?")){p.tasks.splice(i,1);delete p.simulations[t.id];p.horario.blocks.forEach(b=>{if(b.taskId===t.id){b.taskId="";b.type="";b.recovery=""}});changed();render()}};row.append(label,inp,edit,del);list.append(row)});$("taskCount").textContent=p.tasks.length+" / 50";$("addTask").disabled=p.tasks.length>=50;selector()}
+function render(){
+ const list=$("taskList");list.replaceChildren();
+ const table=document.createElement("table");table.className="mmc-task-overview";
+ const head=document.createElement("thead");head.innerHTML="<tr><th>Nº</th><th>Nombre de tarea</th><th>Mujeres</th><th>Hombres</th><th>Acciones</th></tr>";table.append(head);
+ const body=document.createElement("tbody");
+ p.tasks.forEach((t,i)=>{
+  const row=document.createElement("tr");
+  const num=document.createElement("td");num.textContent=i+1;
+  const name=document.createElement("td"),inp=document.createElement("input");inp.value=t.name;inp.maxLength=150;inp.placeholder="Nombre de tarea";inp.setAttribute("aria-label","Nombre de tarea "+(i+1));inp.oninput=()=>{t.name=inp.value;selector();changed()};name.append(inp);
+  const result=calc(t.inputs),groups=populationResults(result);
+  const risk=(items)=>{const td=document.createElement("td");for(const g of items){const badge=document.createElement("div");badge.className="mmc-overview-risk";badge.style.backgroundColor=g.level.color;badge.style.color=g.level.text;const top=document.createElement("div");const age=document.createElement("strong");age.textContent=g.age;const index=document.createElement("strong");index.textContent="IL "+g.indexText;top.append(age,index);const level=document.createElement("small");level.textContent=g.level.label;badge.append(top,level);td.append(badge)}return td};
+  const actions=document.createElement("td"),buttons=document.createElement("div");buttons.className="mmc-overview-actions";
+  const action=(label,handler,danger=false)=>{const b=document.createElement("button");b.className="secondary"+(danger?" mmc-danger":"");b.textContent=label;b.onclick=handler;buttons.append(b);return b};
+  action("Editar",()=>{sel=t.id;nav(3)});
+  action("Simular",()=>{sel=t.id;nav(5);$("simTask").value=t.id;sim()});
+  const duplicate=action("Duplicar",()=>{if(p.tasks.length>=50)return;const copy=structuredClone(t);copy.id=crypto.randomUUID();copy.name=(t.name||"Tarea")+" (copia)";copy.inputs.taskId=copy.id;p.tasks.push(copy);sel=copy.id;changed();render()});duplicate.disabled=p.tasks.length>=50;
+  action("Eliminar",()=>{if(confirm("¿Eliminar tarea?")){p.tasks.splice(i,1);delete p.simulations[t.id];p.horario.blocks.forEach(b=>{if(b.taskId===t.id){b.taskId="";b.type="";b.recovery=""}});changed();render()}},true);
+  actions.append(buttons);row.append(num,name,risk(groups.slice(2)),risk(groups.slice(0,2)),actions);body.append(row);
+ });
+ table.append(body);const wrap=document.createElement("div");wrap.className="mmc-overview-scroll";wrap.append(table);list.append(wrap);
+ $("taskCount").textContent="Tareas del puesto: "+p.tasks.length+" / 50";$("addTask").disabled=p.tasks.length>=50;selector();
+}
 function verticalDistance(x){
  const problems=[];for(const [key,label] of [["vertical","inicial"],["verticalDestino","final"]]){const value=x?.[key];if((typeof value!=="string"&&typeof value!=="number")||String(value).trim()===""||!Number.isFinite(Number(value))||Number(value)<0)problems.push("Indique una altura vertical "+label+" válida (cm), mayor o igual que cero.")}
  return{problems,value:problems.length?null:Math.abs(Number(x.verticalDestino)-Number(x.vertical))};
