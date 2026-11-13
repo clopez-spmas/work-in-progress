@@ -33,7 +33,7 @@ function frequencyNote(r){
 const fmt=v=>Number.isFinite(v)?v.toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2}):"—";
 const safe=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function blank(){return{...Object.fromEntries(fields.map(k=>[k,""])),horario:MMCSchedule.blank()}}function task(){return{id:crypto.randomUUID(),name:"",inputs:blank()}}
-function changed(){dirty=true;$("status").textContent="Cambios sin guardar"}function screen(s){["welcome","methods","simple"].forEach(k=>$(k).hidden=k!==s);scrollTo(0,0)}
+function changed(){dirty=true;$("status").textContent="Cambios sin guardar"}function screen(s){["methods","simple"].forEach(k=>$(k).hidden=k!==s);scrollTo(0,0)}
 const temporalFields=["duracion","recuperacion","grupoDuracion","extension"];
 function nav(n){page=Math.min(5,Math.max(1,n));for(let i=1;i<=5;i++)$("page"+i).hidden=i!==page;$("pageNum").textContent=page;$("prev").disabled=page===1;$("next").disabled=page===5;if(page===2)renderSchedule();if(page===3)inputs();if(page===4)results();if(page===5){selector();sim()}$("simulation").hidden=page!==5||!p.tasks.length;scrollTo(0,0)}
 function selector(){if(!p.tasks.some(t=>t.id===sel))sel=p.tasks[0]?.id||"";for(const id of ["taskSelect","scheduleTask","simTask"]){const e=$(id),previous=e.value;e.replaceChildren();p.tasks.forEach((t,i)=>{const o=document.createElement("option");o.value=t.id;o.textContent=(i+1)+". "+(t.name||"Sin nombre");e.append(o)});e.value=id==="simTask"&&p.tasks.some(t=>t.id===previous)?previous:sel}}
@@ -285,8 +285,8 @@ function copy(type){
  let rows=type==="intermediate"?[["Tarea","Factores"],...p.tasks.map(t=>[t.name,factorText(calc(t.inputs))])]:[["Tarea","Simulación"],...p.tasks.map(t=>[t.name,p.simulations[t.id]?JSON.stringify(p.simulations[t.id]):"Sin simulación"])];
  const markup='<table style="font-family:Arial;font-size:10pt;border-collapse:collapse">'+rows.map(row=>"<tr>"+row.map(cell=>'<td style="border:1px solid #ccc;padding:4px">'+safe(cell)+"</td>").join("")+"</tr>").join("")+"</table>";return copyReport(markup,rows.map(row=>row.join("\t")).join("\n"),"Tabla copiada");
 }
-$("enter").onclick=()=>screen("methods");$("backWelcome").onclick=()=>screen("welcome");document.querySelectorAll("[data-method]").forEach(b=>b.onclick=()=>b.dataset.method==="simple"?(screen("simple"),nav(1)):$("methodNote").textContent="Módulo en preparación");
-$("home").onclick=()=>{if(dirty&&!confirm("Hay cambios sin guardar. ¿Salir?"))return;screen("welcome")};$("prev").onclick=()=>nav(page-1);$("next").onclick=()=>nav(page+1);
+document.querySelectorAll("[data-method]").forEach(b=>b.onclick=()=>b.dataset.method==="simple"?(screen("simple"),nav(1)):$("methodNote").textContent="Módulo en preparación");
+$("home").onclick=()=>{if(dirty&&!confirm("Hay cambios sin guardar. ¿Salir?"))return;screen("methods")};$("prev").onclick=()=>nav(page-1);$("next").onclick=()=>nav(page+1);
 $("addTask").onclick=()=>{if(p.tasks.length>=50)return;const t=task();p.tasks.push(t);sel=t.id;changed();render()};$("taskSelect").onchange=e=>{sel=e.target.value;inputs()};
 $("scheduleTask").onchange=e=>{sel=e.target.value;renderSchedule()};
 for(const [id,key] of [["shiftStart","start"],["shiftEnd","end"]])$(id).oninput=()=>{const t=selectedTask();if(t){t.inputs.horario[key]=$(id).value;scheduleChanged()}};
@@ -301,6 +301,6 @@ $("recalcSim").onclick=()=>{const t=simTask();if(t)showSim(t,simulationInput(t))
 $("copySimReport").onclick=()=>{const t=simTask();if(t){const r=simulationReport(t,simulationInput(t));copyReport(r.html,r.plain,"Comparación de la tarea copiada para Word")}};
 $("simTask").onchange=sim;$("resetSim").onclick=()=>{const t=simTask();if(t){delete p.simulations[t.id];changed();sim()}};
 $("copyGeneral").onclick=()=>copy("general");$("copyIntermediate").onclick=()=>copy("intermediate");$("copySim").onclick=()=>copy("sim");
-window.addEventListener("beforeunload",e=>{if(dirty){e.preventDefault();e.returnValue=""}});render();nav(1);
+window.addEventListener("beforeunload",e=>{if(dirty){e.preventDefault();e.returnValue=""}});render();nav(1);screen("methods");
 })();
 
