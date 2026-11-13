@@ -30,10 +30,16 @@ Se usan las condiciones físicas y de producción, no el índice final guardado 
 
 Formato secuencial versión 2. Guarda condiciones importadas, procedencia, tareas, orden, horario y simulación. Acepta los estudios secuenciales anteriores, conservando sus tareas y horarios; las tareas sin condiciones físicas deben actualizarse desde sus JSON antes de calcular. No se usan sus antiguos índices manuales como sustitutos de las condiciones faltantes.
 
-La simulación conserva las condiciones originales. Permite cambiar secuencias, tareas y tiempos, e importar condiciones actualizadas sobre una tarea concreta. El resumen muestra cambios efectivos de condiciones y horario; omite marcas internas y metadatos de archivo. Se mantienen las salidas para Word y el aviso de cambios pendientes al cerrar o volver al inicio.
+La simulación conserva las condiciones originales. Permite cambiar secuencias, tareas y tiempos y editar directamente las condiciones de cada tarea importada. Un selector y los botones «Editar condiciones» permiten trabajar con una tarea cada vez. Las simples incluyen peso, alturas inicial/final, alcance, asimetría, frecuencia, agarre, manos, personas y control en destino. Las compuestas incluyen trabajadores y producción y geometría de cada subtarea. Las variables incluyen trabajadores, cargas, personas por carga, combinaciones de alturas/alcances y asimetría por categoría. Se pueden añadir o eliminar filas dentro de los límites de cada método, conservando siempre una fila de carga o subtarea. Los nuevos campos comienzan vacíos.
+
+`conditions.js` contiene los editores y aplica sus cambios exclusivamente a la copia simulada. La revisión de las condiciones originales sigue basándose en los JSON importados. Editar una simulación no escribe en esos archivos ni modifica `project.data`. Los cálculos se actualizan automáticamente, y las condiciones editadas se guardan en `project.simulation` dentro del estudio secuencial. La conversión de geometrías variables antiguas a filas editables se hace solo al editarlas, y la comparación usa representaciones equivalentes para evitar mostrar conversiones internas como cambios. El resumen indica solo campos modificados, con categoría y peso cuando corresponde. Se mantienen las salidas para Word, el restablecimiento de la simulación y el aviso de cambios pendientes al cerrar o volver al inicio.
 
 ## Comprobaciones
 
 `node tests/secuencial.cjs`
 
+`node tests/secuencial-conditions.cjs`
+
 Incluye 56 comparaciones de categoría temporal y agregación con casos de referencia de la documentación; 15 casos y 60 comparaciones de cálculo parcial frente a una evaluación independiente de las fórmulas originales; los tres formatos JSON; varios registros por archivo; orden 2→1→3; 50 tareas con participación de la última; límites e importación atómica; frecuencias por tiempo asignado; guardado y recarga de condiciones y simulación; recuperación de formato anterior; aviso de salida; ausencia de referencias a herramientas de cálculo externas en la interfaz.
+
+Las pruebas de edición directa cubren los tres tipos de tarea, cambios de pesos y alturas, recálculo, conversión de geometrías antiguas, límites de filas, campos incompletos y condiciones críticas, aislamiento respecto a los originales, rechazo de eventos de edición sobre el contexto original, resumen limitado a cambios reales, guardado/recarga de las condiciones simuladas y restablecimiento completo.
